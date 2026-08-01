@@ -1874,8 +1874,6 @@ FSP_API NTSTATUS FspCreateSecurityDescriptor(FSP_FILE_SYSTEM *FileSystem,
  *     This security descriptor can be later freed using FspDeleteSecurityDescriptor.
  * @return
  *     STATUS_SUCCESS or error code.
- *     Returns STATUS_INVALID_OWNER when OWNER_SECURITY_INFORMATION attempts to assign
- *     an owner different from the descriptor's current owner.
  * @see
  *     SetSecurity
  *     FspDeleteSecurityDescriptor
@@ -1884,6 +1882,39 @@ FSP_API NTSTATUS FspSetSecurityDescriptor(
     PSECURITY_DESCRIPTOR InputDescriptor,
     SECURITY_INFORMATION SecurityInformation,
     PSECURITY_DESCRIPTOR ModificationDescriptor,
+    PSECURITY_DESCRIPTOR *PSecurityDescriptor);
+#define FSP_SET_SECURITY_DESCRIPTOR_REJECT_OWNER_CHANGE 1
+/**
+ * Modify security descriptor with options.
+ *
+ * This is a helper for implementing the SetSecurity operation.
+ *
+ * @param InputDescriptor
+ *     The input security descriptor to be modified.
+ * @param SecurityInformation
+ *     Describes what parts of the InputDescriptor should be modified. This should contain
+ *     the same value passed to the SetSecurity SecurityInformation parameter.
+ * @param ModificationDescriptor
+ *     Describes the modifications to apply to the InputDescriptor. This should contain
+ *     the same value passed to the SetSecurity ModificationDescriptor parameter.
+ * @param Flags
+ *     Optional flags. FSP_SET_SECURITY_DESCRIPTOR_REJECT_OWNER_CHANGE returns
+ *     STATUS_INVALID_OWNER when OWNER_SECURITY_INFORMATION attempts to assign
+ *     an owner different from the descriptor's current owner.
+ * @param PSecurityDescriptor [out]
+ *     Pointer to a memory location that will receive the resulting security descriptor.
+ *     This security descriptor can be later freed using FspDeleteSecurityDescriptor.
+ * @return
+ *     STATUS_SUCCESS or error code.
+ * @see
+ *     SetSecurity
+ *     FspDeleteSecurityDescriptor
+ */
+FSP_API NTSTATUS FspSetSecurityDescriptorEx(
+    PSECURITY_DESCRIPTOR InputDescriptor,
+    SECURITY_INFORMATION SecurityInformation,
+    PSECURITY_DESCRIPTOR ModificationDescriptor,
+    UINT32 Flags,
     PSECURITY_DESCRIPTOR *PSecurityDescriptor);
 /**
  * Delete security descriptor.

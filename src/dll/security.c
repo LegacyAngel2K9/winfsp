@@ -430,10 +430,11 @@ FSP_API NTSTATUS FspCreateSecurityDescriptor(FSP_FILE_SYSTEM *FileSystem,
     return STATUS_SUCCESS;
 }
 
-FSP_API NTSTATUS FspSetSecurityDescriptor(
+FSP_API NTSTATUS FspSetSecurityDescriptorEx(
     PSECURITY_DESCRIPTOR InputDescriptor,
     SECURITY_INFORMATION SecurityInformation,
     PSECURITY_DESCRIPTOR ModificationDescriptor,
+    UINT32 Flags,
     PSECURITY_DESCRIPTOR *PSecurityDescriptor)
 {
     *PSecurityDescriptor = 0;
@@ -441,7 +442,8 @@ FSP_API NTSTATUS FspSetSecurityDescriptor(
     if (0 == InputDescriptor)
         return STATUS_NO_SECURITY_ON_OBJECT;
 
-    if (SecurityInformation & OWNER_SECURITY_INFORMATION)
+    if ((FSP_SET_SECURITY_DESCRIPTOR_REJECT_OWNER_CHANGE & Flags) &&
+        (SecurityInformation & OWNER_SECURITY_INFORMATION))
     {
         PSID InputOwner = 0, ModificationOwner = 0;
         BOOL OwnerDefaulted;
@@ -455,53 +457,218 @@ FSP_API NTSTATUS FspSetSecurityDescriptor(
             return STATUS_INVALID_OWNER;
     }
 
-    /*
-     * SetPrivateObjectSecurity is a broken API. It assumes that the passed
-     * descriptor resides on memory allocated by CreatePrivateObjectSecurity
-     * or SetPrivateObjectSecurity and frees the descriptor on success.
-     *
-     * In our case the security descriptor comes from the user mode file system,
-     * which may conjure it any way it sees fit. So we have to somehow make a copy
-     * of the InputDescriptor and place it in memory that SetPrivateObjectSecurity
-     * can then free. To complicate matters there is no API that can be used for
-     * this purpose. What a PITA!
-     */
-    /* !!!: HACK! HACK! HACK!
-     *
-     * Turns out that SetPrivateObjectSecurity and friends really use RtlProcessHeap
-     * internally, which is just another name for GetProcessHeap().
-     *
-     * I wish there was a cleaner way to do this!
-     */
+    DWORD DescriptorSize = 0;
+    DWORD DaclSize = 0;
+    DWORD SaclSize = 0;
+    DWORD OwnerSize = 0;
+    DWORD GroupSize = 0;
+    PUINT8 Buffer = 0;
+    PSECURITY_DESCRIPTOR AbsoluteDescriptor;
+    PACL Dacl;
+    PACL Sacl;
+    PSID Owner;
+    PSID Group;
+    PSECURITY_DESCRIPTOR SecurityDescriptor = 0;
+    DWORD SecurityDescriptorSize;
+    NTSTATUS Result;
 
-    HANDLE ProcessHeap = GetProcessHeap();
-    DWORD InputDescriptorSize = GetSecurityDescriptorLength(InputDescriptor);
-    PSECURITY_DESCRIPTOR CopiedDescriptor;
-
-    CopiedDescriptor = HeapAlloc(ProcessHeap, 0, InputDescriptorSize);
-    if (0 == CopiedDescriptor)
-        return STATUS_INSUFFICIENT_RESOURCES;
-    memcpy(CopiedDescriptor, InputDescriptor, InputDescriptorSize);
-    InputDescriptor = CopiedDescriptor;
-
-    if (!SetPrivateObjectSecurity(
-        SecurityInformation,
-        ModificationDescriptor,
-        &InputDescriptor,
-        &FspFileGenericMapping,
-        0))
-    {
-        HeapFree(ProcessHeap, 0, CopiedDescriptor);
+    if (MakeAbsoluteSD(InputDescriptor,
+        0, &DescriptorSize,
+        0, &DaclSize,
+        0, &SaclSize,
+        0, &OwnerSize,
+        0, &GroupSize) ||
+        ERROR_INSUFFICIENT_BUFFER != GetLastError())
         return FspNtStatusFromWin32(GetLastError());
+
+    Buffer = MemAlloc(DescriptorSize + DaclSize + SaclSize + OwnerSize + GroupSize);
+    if (0 == Buffer)
+        return STATUS_INSUFFICIENT_RESOURCES;
+
+    AbsoluteDescriptor = (PSECURITY_DESCRIPTOR)Buffer;
+    Dacl = (PACL)(Buffer + DescriptorSize);
+    Sacl = (PACL)(Buffer + DescriptorSize + DaclSize);
+    Owner = (PSID)(Buffer + DescriptorSize + DaclSize + SaclSize);
+    Group = (PSID)(Buffer + DescriptorSize + DaclSize + SaclSize + OwnerSize);
+
+    if (!MakeAbsoluteSD(InputDescriptor,
+        AbsoluteDescriptor, &DescriptorSize,
+        Dacl, &DaclSize,
+        Sacl, &SaclSize,
+        Owner, &OwnerSize,
+        Group, &GroupSize))
+    {
+        Result = FspNtStatusFromWin32(GetLastError());
+        goto exit;
     }
 
-    /* CopiedDescriptor has been freed by SetPrivateObjectSecurity! */
+    if (SecurityInformation & DACL_SECURITY_INFORMATION)
+    {
+        BOOL DaclPresent, DaclDefaulted;
+        PACL ModificationDacl;
 
-    *PSecurityDescriptor = InputDescriptor;
+        if (!GetSecurityDescriptorDacl(ModificationDescriptor,
+            &DaclPresent, &ModificationDacl, &DaclDefaulted))
+        {
+            Result = FspNtStatusFromWin32(GetLastError());
+            goto exit;
+        }
+
+        if (DaclPresent && 0 != ModificationDacl && !IsValidAcl(ModificationDacl))
+        {
+            Result = FspNtStatusFromWin32(ERROR_INVALID_ACL);
+            goto exit;
+        }
+
+        if (!SetSecurityDescriptorDacl(AbsoluteDescriptor,
+            DaclPresent, ModificationDacl, DaclDefaulted))
+        {
+            Result = FspNtStatusFromWin32(GetLastError());
+            goto exit;
+        }
+    }
+
+    if (SecurityInformation & SACL_SECURITY_INFORMATION)
+    {
+        BOOL SaclPresent, SaclDefaulted;
+        PACL ModificationSacl;
+
+        if (!GetSecurityDescriptorSacl(ModificationDescriptor,
+            &SaclPresent, &ModificationSacl, &SaclDefaulted))
+        {
+            Result = FspNtStatusFromWin32(GetLastError());
+            goto exit;
+        }
+
+        if (SaclPresent && 0 != ModificationSacl && !IsValidAcl(ModificationSacl))
+        {
+            Result = FspNtStatusFromWin32(ERROR_INVALID_ACL);
+            goto exit;
+        }
+
+        if (!SetSecurityDescriptorSacl(AbsoluteDescriptor,
+            SaclPresent, ModificationSacl, SaclDefaulted))
+        {
+            Result = FspNtStatusFromWin32(GetLastError());
+            goto exit;
+        }
+    }
+
+    if (SecurityInformation & OWNER_SECURITY_INFORMATION)
+    {
+        PSID ModificationOwner;
+        BOOL OwnerDefaulted;
+
+        if (!GetSecurityDescriptorOwner(ModificationDescriptor, &ModificationOwner, &OwnerDefaulted))
+        {
+            Result = FspNtStatusFromWin32(GetLastError());
+            goto exit;
+        }
+
+        if (0 != ModificationOwner && !IsValidSid(ModificationOwner))
+        {
+            Result = FspNtStatusFromWin32(ERROR_INVALID_SID);
+            goto exit;
+        }
+
+        if (!SetSecurityDescriptorOwner(AbsoluteDescriptor, ModificationOwner, OwnerDefaulted))
+        {
+            Result = FspNtStatusFromWin32(GetLastError());
+            goto exit;
+        }
+    }
+
+    if (SecurityInformation & GROUP_SECURITY_INFORMATION)
+    {
+        PSID ModificationGroup;
+        BOOL GroupDefaulted;
+
+        if (!GetSecurityDescriptorGroup(ModificationDescriptor, &ModificationGroup, &GroupDefaulted))
+        {
+            Result = FspNtStatusFromWin32(GetLastError());
+            goto exit;
+        }
+
+        if (0 != ModificationGroup && !IsValidSid(ModificationGroup))
+        {
+            Result = FspNtStatusFromWin32(ERROR_INVALID_SID);
+            goto exit;
+        }
+
+        if (!SetSecurityDescriptorGroup(AbsoluteDescriptor, ModificationGroup, GroupDefaulted))
+        {
+            Result = FspNtStatusFromWin32(GetLastError());
+            goto exit;
+        }
+    }
+
+    SECURITY_DESCRIPTOR_CONTROL Control = 0;
+    SECURITY_DESCRIPTOR_CONTROL ControlMask = 0;
+
+    if (SecurityInformation & PROTECTED_DACL_SECURITY_INFORMATION)
+    {
+        Control |= SE_DACL_PROTECTED;
+        ControlMask |= SE_DACL_PROTECTED;
+    }
+    if (SecurityInformation & UNPROTECTED_DACL_SECURITY_INFORMATION)
+        ControlMask |= SE_DACL_PROTECTED;
+    if (SecurityInformation & PROTECTED_SACL_SECURITY_INFORMATION)
+    {
+        Control |= SE_SACL_PROTECTED;
+        ControlMask |= SE_SACL_PROTECTED;
+    }
+    if (SecurityInformation & UNPROTECTED_SACL_SECURITY_INFORMATION)
+        ControlMask |= SE_SACL_PROTECTED;
+
+    if (0 != ControlMask &&
+        !SetSecurityDescriptorControl(AbsoluteDescriptor, ControlMask, Control))
+    {
+        Result = FspNtStatusFromWin32(GetLastError());
+        goto exit;
+    }
+
+    SecurityDescriptorSize = 0;
+    if (MakeSelfRelativeSD(AbsoluteDescriptor, 0, &SecurityDescriptorSize) ||
+        ERROR_INSUFFICIENT_BUFFER != GetLastError())
+    {
+        Result = FspNtStatusFromWin32(GetLastError());
+        goto exit;
+    }
+
+    SecurityDescriptor = MemAlloc(SecurityDescriptorSize);
+    if (0 == SecurityDescriptor)
+    {
+        Result = STATUS_INSUFFICIENT_RESOURCES;
+        goto exit;
+    }
+
+    if (!MakeSelfRelativeSD(AbsoluteDescriptor, SecurityDescriptor, &SecurityDescriptorSize))
+    {
+        Result = FspNtStatusFromWin32(GetLastError());
+        goto exit;
+    }
+
+    *PSecurityDescriptor = SecurityDescriptor;
+    SecurityDescriptor = 0;
+    Result = STATUS_SUCCESS;
 
     //DEBUGLOGSD("SDDL=%s", *PSecurityDescriptor);
 
-    return STATUS_SUCCESS;
+exit:
+    MemFree(SecurityDescriptor);
+    MemFree(Buffer);
+
+    return Result;
+}
+
+FSP_API NTSTATUS FspSetSecurityDescriptor(
+    PSECURITY_DESCRIPTOR InputDescriptor,
+    SECURITY_INFORMATION SecurityInformation,
+    PSECURITY_DESCRIPTOR ModificationDescriptor,
+    PSECURITY_DESCRIPTOR *PSecurityDescriptor)
+{
+    return FspSetSecurityDescriptorEx(InputDescriptor,
+        SecurityInformation, ModificationDescriptor, 0, PSecurityDescriptor);
 }
 
 FSP_API VOID FspDeleteSecurityDescriptor(PSECURITY_DESCRIPTOR SecurityDescriptor,
@@ -513,10 +680,11 @@ FSP_API VOID FspDeleteSecurityDescriptor(PSECURITY_DESCRIPTOR SecurityDescriptor
 
     if ((NTSTATUS (*)())FspAccessCheckEx == CreateFunc ||
         (NTSTATUS (*)())FspPosixMapPermissionsToSecurityDescriptor == CreateFunc ||
-        (NTSTATUS (*)())FspPosixMergePermissionsToSecurityDescriptor == CreateFunc)
+        (NTSTATUS (*)())FspPosixMergePermissionsToSecurityDescriptor == CreateFunc ||
+        (NTSTATUS (*)())FspSetSecurityDescriptor == CreateFunc ||
+        (NTSTATUS (*)())FspSetSecurityDescriptorEx == CreateFunc)
         MemFree(SecurityDescriptor);
     else
-    if ((NTSTATUS (*)())FspCreateSecurityDescriptor == CreateFunc ||
-        (NTSTATUS (*)())FspSetSecurityDescriptor == CreateFunc)
+    if ((NTSTATUS (*)())FspCreateSecurityDescriptor == CreateFunc)
         DestroyPrivateObjectSecurity(&SecurityDescriptor);
 }
