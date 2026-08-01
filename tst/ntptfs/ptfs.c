@@ -1188,6 +1188,7 @@ NTSTATUS PtfsCreate(
     ULONG FsAttributeMask,
     PWSTR VolumePrefix,
     PWSTR MountPoint,
+    const GUID *TargetSiloId,
     UINT32 DebugFlags,
     PTFS **PPtfs)
 {
@@ -1277,6 +1278,8 @@ NTSTATUS PtfsCreate(
     VolumeParams.VolumeCreationTime = FileAllInfo.BasicInformation.CreationTime.QuadPart;
     VolumeParams.VolumeSerialNumber = 0;
     VolumeParams.FileInfoTimeout = FileInfoTimeout;
+    if (0 != TargetSiloId)
+        VolumeParams.TargetSiloId = *TargetSiloId;
     /* Keep large mapped/cached saves from dirtying too much memory at once. */
     VolumeParams.DirtyPageThreshold = DIRTY_PAGE_THRESHOLD;
     VolumeParams.CaseSensitiveSearch = 0;

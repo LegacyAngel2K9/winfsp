@@ -372,6 +372,14 @@ namespace Fsp
             set { _VolumeParams.Flags |= (value ? VolumeParams.AllowRelSymlinksAcrossFileSystem : 0); }
         }
         /// <summary>
+        /// Gets or sets the target silo container id for a host-created file system.
+        /// </summary>
+        public Guid TargetSiloId
+        {
+            get { return _VolumeParams.TargetSiloId; }
+            set { _VolumeParams.TargetSiloId = value; }
+        }
+        /// <summary>
         /// Gets or sets the prefix for a network file system.
         /// </summary>
         public String Prefix
@@ -389,6 +397,13 @@ namespace Fsp
         }
 
         /* control */
+        /// <summary>
+        /// Gets the current process silo container id, or Guid.Empty when outside a container.
+        /// </summary>
+        public static Int32 GetCurrentSiloId(out Guid SiloId)
+        {
+            return Api.FspFsctlGetCurrentSiloId(out SiloId);
+        }
         /// <summary>
         /// Checks whether mounting a file system is possible.
         /// </summary>

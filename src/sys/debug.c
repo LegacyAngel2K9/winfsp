@@ -177,6 +177,7 @@ const char *IoctlCodeSym(ULONG ControlCode)
     switch (ControlCode)
     {
     SYM(FSP_FSCTL_VOLUME_NAME)
+    SYM(FSP_FSCTL_GET_SILO_ID)
     SYM(FSP_FSCTL_TRANSACT)
     SYM(FSP_FSCTL_TRANSACT_BATCH)
     SYM(FSP_FSCTL_STOP)

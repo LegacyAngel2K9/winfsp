@@ -23,6 +23,8 @@
 
 - [FIX] Report driver service start failures with the underlying service exit code. See GitHub issue #477.
 
+- [FIX] Add target container silo support for host-created file systems and `ntptfs -o TargetSiloId=GUID`. See GitHub issue #498.
+
 
 ## v2.2B2 (2026 Beta2)
 

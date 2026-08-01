@@ -78,6 +78,52 @@ static ULONG wcstol_deflt(wchar_t *w, ULONG deflt)
     return L'\0' != w[0] && L'\0' == *endp ? ul : deflt;
 }
 
+static BOOLEAN ParseGuid(PWSTR String, GUID *Guid)
+{
+    ULONG Data1, Data2, Data3;
+    ULONG Data4[8];
+    WCHAR Extra;
+    int Count;
+
+    memset(Guid, 0, sizeof *Guid);
+
+    if (L'{' == String[0])
+    {
+        Count = swscanf_s(String,
+            L"{%8lx-%4lx-%4lx-%2lx%2lx-%2lx%2lx%2lx%2lx%2lx%2lx}%c",
+            &Data1, &Data2, &Data3,
+            &Data4[0], &Data4[1], &Data4[2], &Data4[3],
+            &Data4[4], &Data4[5], &Data4[6], &Data4[7],
+            &Extra, 1);
+    }
+    else
+    {
+        Count = swscanf_s(String,
+            L"%8lx-%4lx-%4lx-%2lx%2lx-%2lx%2lx%2lx%2lx%2lx%2lx%c",
+            &Data1, &Data2, &Data3,
+            &Data4[0], &Data4[1], &Data4[2], &Data4[3],
+            &Data4[4], &Data4[5], &Data4[6], &Data4[7],
+            &Extra, 1);
+    }
+
+    if (11 != Count ||
+        0xffff < Data2 ||
+        0xffff < Data3)
+        return FALSE;
+
+    for (ULONG Index = 0; 8 > Index; Index++)
+        if (0xff < Data4[Index])
+            return FALSE;
+
+    Guid->Data1 = Data1;
+    Guid->Data2 = (USHORT)Data2;
+    Guid->Data3 = (USHORT)Data3;
+    for (ULONG Index = 0; 8 > Index; Index++)
+        Guid->Data4[Index] = (UCHAR)Data4[Index];
+
+    return TRUE;
+}
+
 static NTSTATUS SvcStart(FSP_SERVICE *Service, ULONG argc, PWSTR *argv)
 {
 #define argtos(v)                       if (arge > ++argp) v = *argp; else goto usage
@@ -94,6 +140,7 @@ static NTSTATUS SvcStart(FSP_SERVICE *Service, ULONG argc, PWSTR *argv)
     ULONG DebugFlags = 0;
     HANDLE DebugLogHandle = INVALID_HANDLE_VALUE;
     WCHAR RootPathBuf[MAX_PATH];
+    GUID TargetSiloId = { 0 };
     PTFS *Ptfs = 0;
     NTSTATUS Result;
 
@@ -136,6 +183,11 @@ static NTSTATUS SvcStart(FSP_SERVICE *Service, ULONG argc, PWSTR *argv)
                 FsAttributeMask &= ~PtfsFlushAndPurgeOnCleanup;
             else if (0 == _wcsicmp(L"SetAllocationSizeOnCleanup", OptionString))
                 FsAttributeMask |= PtfsSetAllocationSizeOnCleanup;
+            else if (0 == _wcsnicmp(L"TargetSiloId=", OptionString, sizeof L"TargetSiloId=" / sizeof(WCHAR) - 1))
+            {
+                if (!ParseGuid(OptionString + sizeof L"TargetSiloId=" / sizeof(WCHAR) - 1, &TargetSiloId))
+                    goto usage;
+            }
             else
                 goto usage;
             break;
@@ -210,6 +262,7 @@ static NTSTATUS SvcStart(FSP_SERVICE *Service, ULONG argc, PWSTR *argv)
         FsAttributeMask,
         VolumePrefix,
         MountPoint,
+        &TargetSiloId,
         DebugFlags,
         &Ptfs);
     if (!NT_SUCCESS(Result))
@@ -258,6 +311,7 @@ usage:
         "        -o ExtendedAttributes\n"
         "        -o WslFeatures\n"
         "        -o NoFlushAndPurgeOnCleanup\n"
+        "        -o TargetSiloId=GUID\n"
         "    -u \\Server\\Share    [UNC prefix (single backslash)]\n"
         "    -p Directory        [directory to expose as pass through file system]\n"
         "    -m MountPoint       [X:|*|directory]\n";

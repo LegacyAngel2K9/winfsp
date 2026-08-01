@@ -113,6 +113,8 @@ extern const __declspec(selectany) GUID FspFsvrtDeviceClassGuid =
     CTL_CODE(FILE_DEVICE_FILE_SYSTEM, 0x800 + 'n', METHOD_NEITHER, FILE_ANY_ACCESS)
 #define FSP_FSCTL_UNLOAD                \
     CTL_CODE(FILE_DEVICE_FILE_SYSTEM, 0x800 + 'U', METHOD_NEITHER, FILE_ANY_ACCESS)
+#define FSP_FSCTL_GET_SILO_ID           \
+    CTL_CODE(FILE_DEVICE_FILE_SYSTEM, 0x800 + 'C', METHOD_BUFFERED, FILE_ANY_ACCESS)
 
 /* fsctl internal device codes (usable only in-kernel) */
 #define FSP_FSCTL_TRANSACT_INTERNAL     \
@@ -254,7 +256,11 @@ enum
     UINT32 FsextControlCode;\
     UINT16 ReadAheadGranularity;        /* read-ahead granularity (pages); 0 for default */\
     UINT16 DirtyPageThreshold;          /* dirty page threshold (pages); 0 for default */\
-    UINT64 Reserved64[2];
+    union\
+    {\
+        GUID TargetSiloId;              /* target silo container id; zero for current silo */\
+        UINT64 Reserved64[2];\
+    };
 typedef struct
 {
     FSP_FSCTL_VOLUME_PARAMS_V0_FIELD_DEFN
@@ -705,6 +711,7 @@ FSP_API NTSTATUS FspFsctlNotify(HANDLE VolumeHandle,
 FSP_API NTSTATUS FspFsctlGetVolumeList(PWSTR DevicePath,
     PWCHAR VolumeListBuf, PSIZE_T PVolumeListSize);
 FSP_API NTSTATUS FspFsctlPreflight(PWSTR DevicePath);
+FSP_API NTSTATUS FspFsctlGetCurrentSiloId(GUID *SiloId);
 FSP_API NTSTATUS FspFsctlServiceVersion(PUINT32 PVersion);
 FSP_API NTSTATUS FspFsctlStartService(VOID);
 FSP_API NTSTATUS FspFsctlStopService(VOID);

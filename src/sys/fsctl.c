@@ -92,6 +92,16 @@ static NTSTATUS FspFsctlFileSystemControl(
         case FSP_FSCTL_VOLUME_LIST:
             Result = FspVolumeGetNameList(FsctlDeviceObject, Irp, IrpSp);
             break;
+        case FSP_FSCTL_GET_SILO_ID:
+            if (sizeof(GUID) > IrpSp->Parameters.FileSystemControl.OutputBufferLength)
+            {
+                Result = STATUS_BUFFER_TOO_SMALL;
+                break;
+            }
+            FspSiloGetContainerId(Irp->AssociatedIrp.SystemBuffer);
+            Irp->IoStatus.Information = sizeof(GUID);
+            Result = STATUS_SUCCESS;
+            break;
         case FSP_FSCTL_TRANSACT:
         case FSP_FSCTL_TRANSACT_BATCH:
         case FSP_FSCTL_TRANSACT_INTERNAL:

@@ -284,6 +284,71 @@ exit:
     return Result;
 }
 
+FSP_API NTSTATUS FspFsctlGetCurrentSiloId(GUID *SiloId)
+{
+    WCHAR SxsDevicePathBuf[MAX_PATH];
+    PWSTR DevicePath = L"" FSP_FSCTL_DISK_DEVICE_NAME;
+    PWSTR DeviceRoot;
+    SIZE_T DeviceRootSize, DevicePathSize;
+    WCHAR DevicePathBuf[MAX_PATH], *DevicePathPtr;
+    HANDLE VolumeHandle = INVALID_HANDLE_VALUE;
+    DWORD Bytes;
+    NTSTATUS Result;
+
+    if (0 == SiloId)
+        return STATUS_INVALID_PARAMETER;
+    memset(SiloId, 0, sizeof *SiloId);
+
+    Result = FspFsctlStartService();
+    if (!NT_SUCCESS(Result))
+        return Result;
+
+    DevicePath = FspSxsAppendSuffix(SxsDevicePathBuf, sizeof SxsDevicePathBuf, DevicePath);
+
+    /* check lengths; everything must fit within MAX_PATH */
+    DeviceRoot = L'\\' == DevicePath[0] ? GLOBALROOT : GLOBALROOT "\\Device\\";
+    DeviceRootSize = lstrlenW(DeviceRoot) * sizeof(WCHAR);
+    DevicePathSize = lstrlenW(DevicePath) * sizeof(WCHAR);
+    if (DeviceRootSize + DevicePathSize + sizeof(WCHAR) > sizeof DevicePathBuf)
+        return STATUS_INVALID_PARAMETER;
+
+    /* prepare the device path to be opened */
+    DevicePathPtr = DevicePathBuf;
+    memcpy(DevicePathPtr, DeviceRoot, DeviceRootSize);
+    DevicePathPtr = (PVOID)((PUINT8)DevicePathPtr + DeviceRootSize);
+    memcpy(DevicePathPtr, DevicePath, DevicePathSize);
+    DevicePathPtr = (PVOID)((PUINT8)DevicePathPtr + DevicePathSize);
+    *DevicePathPtr = L'\0';
+
+    VolumeHandle = CreateFileW(DevicePathBuf,
+        0, FILE_SHARE_READ | FILE_SHARE_WRITE, 0, OPEN_EXISTING, FILE_FLAG_OVERLAPPED, 0);
+    if (INVALID_HANDLE_VALUE == VolumeHandle)
+    {
+        Result = FspNtStatusFromWin32(GetLastError());
+        if (STATUS_OBJECT_PATH_NOT_FOUND == Result ||
+            STATUS_OBJECT_NAME_NOT_FOUND == Result)
+            Result = STATUS_NO_SUCH_DEVICE;
+        goto exit;
+    }
+
+    if (!DeviceIoControl(VolumeHandle, FSP_FSCTL_GET_SILO_ID,
+        0, 0,
+        SiloId, (DWORD)sizeof *SiloId,
+        &Bytes, 0))
+    {
+        Result = FspNtStatusFromWin32(GetLastError());
+        goto exit;
+    }
+
+    Result = sizeof *SiloId == Bytes ? STATUS_SUCCESS : STATUS_INVALID_PARAMETER;
+
+exit:
+    if (INVALID_HANDLE_VALUE != VolumeHandle)
+        CloseHandle(VolumeHandle);
+
+    return Result;
+}
+
 FSP_API NTSTATUS FspFsctlPreflight(PWSTR DevicePath)
 {
     NTSTATUS Result;
