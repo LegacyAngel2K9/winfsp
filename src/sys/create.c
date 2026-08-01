@@ -35,6 +35,7 @@ FSP_IOCMPL_DISPATCH FspFsvolCreateComplete;
 static NTSTATUS FspFsvolCreateTryOpen(PIRP Irp, const FSP_FSCTL_TRANSACT_RSP *Response,
     FSP_FILE_NODE *FileNode, FSP_FILE_DESC *FileDesc, PFILE_OBJECT FileObject,
     BOOLEAN FlushImage);
+static BOOLEAN FspFsvolCreateFileNodeHasMultipleOpens(FSP_FILE_NODE *FileNode);
 static NTSTATUS FspFsvolCreateCheckFileKind(
     const FSP_FSVOL_DEVICE_EXTENSION *FsvolDeviceExtension,
     ULONG CreateOptions, ULONG FileAttributes);
@@ -61,6 +62,7 @@ FSP_DRIVER_DISPATCH FspCreate;
 #pragma alloc_text(PAGE, FspFsvolCreatePrepare)
 #pragma alloc_text(PAGE, FspFsvolCreateComplete)
 #pragma alloc_text(PAGE, FspFsvolCreateTryOpen)
+#pragma alloc_text(PAGE, FspFsvolCreateFileNodeHasMultipleOpens)
 #pragma alloc_text(PAGE, FspFsvolCreateCheckFileKind)
 #pragma alloc_text(PAGE, FspFsvolCreatePostClose)
 #pragma alloc_text(PAGE, FspFsvolCreateRequestFini)
@@ -1316,7 +1318,9 @@ static NTSTATUS FspFsvolCreateTryOpen(PIRP Irp, const FSP_FSCTL_TRANSACT_RSP *Re
     PAGED_CODE();
 
     FSP_FSCTL_TRANSACT_REQ *Request = FspIrpRequest(Irp);
+    PIO_STACK_LOCATION IrpSp = IoGetCurrentIrpStackLocation(Irp);
     NTSTATUS Result;
+    BOOLEAN SharedOpenCompletion;
     BOOLEAN Success;
 
     if (FspFsctlTransactCreateKind == Request->Kind)
@@ -1339,9 +1343,17 @@ static NTSTATUS FspFsvolCreateTryOpen(PIRP Irp, const FSP_FSCTL_TRANSACT_RSP *Re
             (Request->Req.Create.AcceptsSecurityDescriptor ? RequestAcceptsSecurityDescriptor : 0));
     }
 
+    SharedOpenCompletion =
+        !FlushImage &&
+        FILE_OPENED == Response->IoStatus.Information &&
+        !FlagOn(IrpSp->Parameters.Create.Options, FILE_OPEN_REQUIRING_OPLOCK) &&
+        FspFsvolCreateFileNodeHasMultipleOpens(FileNode);
+
     Result = STATUS_SUCCESS;
     Success = DEBUGTEST(90) &&
-        FspFileNodeTryAcquireExclusive(FileNode, Main) &&
+        (SharedOpenCompletion ?
+            FspFileNodeTryAcquireShared(FileNode, Main) :
+            FspFileNodeTryAcquireExclusive(FileNode, Main)) &&
         FspFsvolCreateOpenOrOverwriteOplock(Irp, Response, &Result);
     if (!Success)
     {
@@ -1355,6 +1367,16 @@ static NTSTATUS FspFsvolCreateTryOpen(PIRP Irp, const FSP_FSCTL_TRANSACT_RSP *Re
 
         FspIopRetryCompleteIrp(Irp, Response, &Result);
         return Result;
+    }
+
+    if (SharedOpenCompletion)
+    {
+        FspFileNodeRelease(FileNode, Main);
+
+        /* SUCCESS! */
+        FspIopRequestContext(Request, RequestFileDesc) = 0;
+        Irp->IoStatus.Information = Response->IoStatus.Information;
+        return Irp->IoStatus.Status; /* get success value from oplock processing */
     }
 
     PSECURITY_DESCRIPTOR OpenDescriptor = 0;
@@ -1426,7 +1448,6 @@ static NTSTATUS FspFsvolCreateTryOpen(PIRP Irp, const FSP_FSCTL_TRANSACT_RSP *Re
         {
             FspFileNodeRelease(FileNode, Main);
 
-            PIO_STACK_LOCATION IrpSp = IoGetCurrentIrpStackLocation(Irp);
             BOOLEAN DeleteOnClose = BooleanFlagOn(IrpSp->Parameters.Create.Options, FILE_DELETE_ON_CLOSE);
 
             if (0 == Request)
@@ -1452,6 +1473,19 @@ static NTSTATUS FspFsvolCreateTryOpen(PIRP Irp, const FSP_FSCTL_TRANSACT_RSP *Re
     FspIopRequestContext(Request, RequestFileDesc) = 0;
     Irp->IoStatus.Information = Response->IoStatus.Information;
     return Irp->IoStatus.Status; /* get success value from oplock processing */
+}
+
+static BOOLEAN FspFsvolCreateFileNodeHasMultipleOpens(FSP_FILE_NODE *FileNode)
+{
+    PAGED_CODE();
+
+    BOOLEAN Result;
+
+    FspFsvolDeviceLockContextTable(FileNode->FsvolDeviceObject);
+    Result = 1 < FileNode->OpenCount;
+    FspFsvolDeviceUnlockContextTable(FileNode->FsvolDeviceObject);
+
+    return Result;
 }
 
 static NTSTATUS FspFsvolCreateCheckFileKind(
