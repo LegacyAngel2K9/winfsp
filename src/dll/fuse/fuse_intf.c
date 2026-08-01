@@ -19,7 +19,7 @@
  * associated repository.
  */
 
-#include <dll/fuse/library.h>
+#include <dll/fuse3/library.h>
 
 static NTSTATUS fsp_fuse_intf_GetReparsePointByName(
     FSP_FILE_SYSTEM *FileSystem, PVOID Context,
@@ -2977,6 +2977,88 @@ static NTSTATUS fsp_fuse_intf_SetEa(FSP_FILE_SYSTEM *FileSystem,
     return Result;
 }
 
+static NTSTATUS fsp_fuse_intf_QueryAllocatedRanges(FSP_FILE_SYSTEM *FileSystem,
+    PVOID FileDesc, UINT64 Offset, UINT64 Length,
+    PFILE_ALLOCATED_RANGE_BUFFER AllocatedRanges, ULONG AllocatedRangesLength,
+    PULONG PBytesTransferred)
+{
+    struct fuse *f = FileSystem->UserContext;
+    struct fsp_fuse_file_desc *filedesc = FileDesc;
+    struct fuse3_file_info fi3;
+    ULONG RangeCapacity, Index = 0;
+    UINT64 MaxFuseOffset = 0x7fffffffffffffffULL;
+    UINT64 EndOffset, CurrentOffset;
+    fuse_off_t DataOffset, HoleOffset;
+    int err;
+
+    *PBytesTransferred = 0;
+
+    if (0 == f->fuse3 || 0 == f->fuse3->ops.lseek)
+        return STATUS_INVALID_DEVICE_REQUEST;
+
+    if (filedesc->IsDirectory || filedesc->IsReparsePoint)
+        return STATUS_ACCESS_DENIED;
+
+    if (0 == Length)
+        return STATUS_SUCCESS;
+
+    if (MaxFuseOffset < Offset || MaxFuseOffset - Offset < Length)
+        return STATUS_INVALID_PARAMETER;
+
+    RangeCapacity = AllocatedRangesLength / sizeof(FILE_ALLOCATED_RANGE_BUFFER);
+    if (0 == RangeCapacity)
+        return STATUS_BUFFER_TOO_SMALL;
+
+    memset(&fi3, 0, sizeof fi3);
+    fi3.flags = filedesc->OpenFlags;
+    fi3.fh = filedesc->FileHandle;
+
+    EndOffset = Offset + Length;
+    CurrentOffset = Offset;
+    while (CurrentOffset < EndOffset && Index < RangeCapacity)
+    {
+        DataOffset = f->fuse3->ops.lseek(filedesc->PosixPath,
+            (fuse_off_t)CurrentOffset, SEEK_DATA, &fi3);
+        if (0 > DataOffset)
+        {
+            err = (int)DataOffset;
+            if (-ENXIO == err)
+                break;
+            return fsp_fuse_ntstatus_from_errno(f->env, err);
+        }
+
+        if (EndOffset <= (UINT64)DataOffset)
+            break;
+
+        if ((UINT64)DataOffset < CurrentOffset)
+            return STATUS_INVALID_DEVICE_REQUEST;
+
+        HoleOffset = f->fuse3->ops.lseek(filedesc->PosixPath,
+            DataOffset, SEEK_HOLE, &fi3);
+        if (0 > HoleOffset)
+        {
+            err = (int)HoleOffset;
+            if (-ENXIO == err)
+                HoleOffset = (fuse_off_t)EndOffset;
+            else
+                return fsp_fuse_ntstatus_from_errno(f->env, err);
+        }
+
+        if (HoleOffset <= DataOffset)
+            return STATUS_INVALID_DEVICE_REQUEST;
+
+        AllocatedRanges[Index].FileOffset.QuadPart = DataOffset;
+        AllocatedRanges[Index].Length.QuadPart =
+            (EndOffset < (UINT64)HoleOffset ? EndOffset : (UINT64)HoleOffset) - (UINT64)DataOffset;
+        Index++;
+
+        CurrentOffset = (UINT64)HoleOffset;
+    }
+
+    *PBytesTransferred = Index * sizeof(FILE_ALLOCATED_RANGE_BUFFER);
+    return STATUS_SUCCESS;
+}
+
 static VOID fsp_fuse_intf_DispatcherStopped(FSP_FILE_SYSTEM *FileSystem,
     BOOLEAN Normally)
 {
@@ -3024,6 +3106,7 @@ FSP_FILE_SYSTEM_INTERFACE fsp_fuse_intf =
     fsp_fuse_intf_SetEa,
     0,
     fsp_fuse_intf_DispatcherStopped,
+    fsp_fuse_intf_QueryAllocatedRanges,
 };
 
 /*

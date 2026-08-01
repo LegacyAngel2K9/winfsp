@@ -1417,6 +1417,7 @@ FSP_API NTSTATUS FspFileSystemOpFileSystemControl(FSP_FILE_SYSTEM *FileSystem,
     NTSTATUS Result;
     PREPARSE_DATA_BUFFER ReparseData;
     SIZE_T Size;
+    ULONG BytesTransferred, OutputLength;
 
     Result = STATUS_INVALID_DEVICE_REQUEST;
     switch (Request->Req.FileSystemControl.FsControlCode)
@@ -1463,6 +1464,34 @@ FSP_API NTSTATUS FspFileSystemOpFileSystemControl(FSP_FILE_SYSTEM *FileSystem,
                 (PWSTR)Request->Buffer,
                 ReparseData,
                 Request->Req.FileSystemControl.Buffer.Size);
+        }
+        break;
+    case FSCTL_QUERY_ALLOCATED_RANGES:
+        if (0 != FileSystem->Interface->QueryAllocatedRanges)
+        {
+            PFILE_ALLOCATED_RANGE_BUFFER QueryRange = (PFILE_ALLOCATED_RANGE_BUFFER)
+                (Request->Buffer + Request->Req.FileSystemControl.Buffer.Offset);
+
+            OutputLength = Request->Req.FileSystemControl.OutputLength;
+            if (FSP_FSCTL_TRANSACT_RSP_BUFFER_SIZEMAX < OutputLength)
+                OutputLength = FSP_FSCTL_TRANSACT_RSP_BUFFER_SIZEMAX;
+
+            Result = FileSystem->Interface->QueryAllocatedRanges(FileSystem,
+                (PVOID)ValOfFileContext(Request->Req.FileSystemControl),
+                QueryRange->FileOffset.QuadPart,
+                QueryRange->Length.QuadPart,
+                (PFILE_ALLOCATED_RANGE_BUFFER)Response->Buffer,
+                OutputLength,
+                &BytesTransferred);
+            if (NT_SUCCESS(Result))
+            {
+                if (FSP_FSCTL_TRANSACT_RSP_BUFFER_SIZEMAX < BytesTransferred)
+                    return STATUS_INTERNAL_ERROR;
+
+                Response->Size = (UINT16)(sizeof *Response + BytesTransferred);
+                Response->Rsp.FileSystemControl.Buffer.Offset = 0;
+                Response->Rsp.FileSystemControl.Buffer.Size = (UINT16)BytesTransferred;
+            }
         }
         break;
     }

@@ -63,6 +63,8 @@
 
 - [FIX] Invalidate cached file metadata after Cleanup updates so kernel-cache volumes report fresh write times after close. See GitHub issue #629.
 
+- [FUSE] Support FUSE3 `lseek` through `FSCTL_QUERY_ALLOCATED_RANGES` for sparse-file range queries. See GitHub issue #632.
+
 
 ## v2.2B2 (2026 Beta2)
 

@@ -77,6 +77,13 @@ extern "C" {
 #define FUSE_IOCTL_DIR                  (1 << 4)
 #define FUSE_IOCTL_MAX_IOV              256
 
+#ifndef SEEK_DATA
+#define SEEK_DATA                       3
+#endif
+#ifndef SEEK_HOLE
+#define SEEK_HOLE                       4
+#endif
+
 #define FUSE_BUFVEC_INIT(s)             \
     ((struct fuse3_bufvec){ 1, 0, 0, { {s, (enum fuse3_buf_flags)0, 0, -1, 0} } })
 

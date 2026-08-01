@@ -1108,11 +1108,40 @@ typedef struct _FSP_FILE_SYSTEM_INTERFACE
     VOID (*DispatcherStopped)(FSP_FILE_SYSTEM *FileSystem,
         BOOLEAN Normally);
 
+    /**
+     * Query allocated file ranges.
+     *
+     * This operation services FSCTL_QUERY_ALLOCATED_RANGES. File systems that can represent
+     * sparse files should return the allocated ranges that overlap the requested
+     * [Offset, Offset + Length) interval.
+     *
+     * @param FileSystem
+     *     The file system on which this request is posted.
+     * @param FileContext
+     *     The file context of the file to query.
+     * @param Offset
+     *     Start of the range to query.
+     * @param Length
+     *     Length of the range to query.
+     * @param AllocatedRanges
+     *     Pointer to an array of FILE_ALLOCATED_RANGE_BUFFER entries.
+     * @param AllocatedRangesLength
+     *     Length of the AllocatedRanges buffer in bytes.
+     * @param PBytesTransferred [out]
+     *     Pointer to a memory location that will receive the actual number of bytes stored.
+     * @return
+     *     STATUS_SUCCESS or error code.
+     */
+    NTSTATUS (*QueryAllocatedRanges)(FSP_FILE_SYSTEM *FileSystem,
+        PVOID FileContext, UINT64 Offset, UINT64 Length,
+        PFILE_ALLOCATED_RANGE_BUFFER AllocatedRanges, ULONG AllocatedRangesLength,
+        PULONG PBytesTransferred);
+
     /*
      * This ensures that this interface will always contain 64 function pointers.
      * Please update when changing the interface as it is important for future compatibility.
      */
-    NTSTATUS (*Reserved[30])();
+    NTSTATUS (*Reserved[29])();
 } FSP_FILE_SYSTEM_INTERFACE;
 FSP_FSCTL_STATIC_ASSERT(sizeof(FSP_FILE_SYSTEM_INTERFACE) == 64 * sizeof(NTSTATUS (*)()),
     "FSP_FILE_SYSTEM_INTERFACE must have 64 entries.");

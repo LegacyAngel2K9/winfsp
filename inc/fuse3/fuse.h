@@ -140,7 +140,7 @@ struct fuse3_operations
     /* _ */ ssize_t (*copy_file_range)(const char *path_in, struct fuse3_file_info *fi_in,
         fuse_off_t offset_in, const char *path_out, struct fuse3_file_info *fi_out,
         fuse_off_t offset_out, size_t size, int flags);
-    /* _ */ fuse_off_t (*lseek)(const char *path, fuse_off_t off, int whence,
+    /* S */ fuse_off_t (*lseek)(const char *path, fuse_off_t off, int whence,
         struct fuse3_file_info *fi);
     /* WinFsp */
     /* S */ int (*chflags)(const char *path, uint32_t flags);

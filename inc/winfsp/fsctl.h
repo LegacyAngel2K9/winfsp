@@ -521,6 +521,7 @@ typedef struct
             UINT64 UserContext2;
             UINT32 FsControlCode;
             FSP_FSCTL_TRANSACT_BUF Buffer;
+            UINT32 OutputLength;
             UINT16 TargetOnFileSystem;  /* the target of the symbolic link is on this file system */
         } FileSystemControl;
         struct
