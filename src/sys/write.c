@@ -462,9 +462,16 @@ static NTSTATUS FspFsvolWriteNonCached(
     if (!NT_SUCCESS(Result))
         return Result;
 
-    /* acquire FileNode exclusive Full */
+    /* acquire FileNode Main exclusive and PagingIo shared */
     Success = DEBUGTEST(90) &&
-        FspFileNodeTryAcquireExclusiveF(FileNode, FspFileNodeAcquireFull, CanWait);
+        FspFileNodeTryAcquireExclusiveF(FileNode, FspFileNodeAcquireMain, CanWait);
+    if (Success)
+    {
+        Success = DEBUGTEST(90) &&
+            FspFileNodeTryAcquireSharedF(FileNode, FspFileNodeAcquirePgio, CanWait);
+        if (!Success)
+            FspFileNodeRelease(FileNode, Main);
+    }
     if (!Success)
         return FspWqRepostIrpWorkItem(Irp, FspFsvolWriteNonCached, 0);
 
@@ -499,15 +506,19 @@ static NTSTATUS FspFsvolWriteNonCached(
             return FspWqRepostIrpWorkItem(Irp, FspFsvolWriteNonCached, 0);
         }
 
+        FspFileNodeRelease(FileNode, Pgio);
+        FspFileNodeAcquireExclusive(FileNode, Pgio);
         Result = FspFileNodeFlushAndPurgeCache(FileNode,
             IrpSp->Parameters.Write.ByteOffset.QuadPart,
             IrpSp->Parameters.Write.Length,
             TRUE);
+        FspFileNodeRelease(FileNode, Pgio);
         if (!NT_SUCCESS(Result))
         {
-            FspFileNodeRelease(FileNode, Full);
+            FspFileNodeRelease(FileNode, Main);
             return Result;
         }
+        FspFileNodeAcquireShared(FileNode, Pgio);
     }
 
     Request = FspIrpRequest(Irp);
