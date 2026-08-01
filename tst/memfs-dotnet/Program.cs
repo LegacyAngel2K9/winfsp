@@ -1379,7 +1379,7 @@ namespace memfs
                 UInt32 SlowioMaxDelay = 0;
                 UInt32 SlowioPercentDelay = 0;
                 UInt32 SlowioRarefyDelay = 0;
-                String FileSystemName = null;
+                String FileSystemName = "NTFS";
                 String VolumePrefix = null;
                 String MountPoint = null;
                 String RootSddl = null;
@@ -1457,7 +1457,7 @@ namespace memfs
                 /* Keep large mapped/cached saves from dirtying too much memory at once. */
                 Host.DirtyPageThreshold = CacheSettings.DirtyPageThreshold;
                 Host.Prefix = VolumePrefix;
-                Host.FileSystemName = null != FileSystemName ? FileSystemName : "-MEMFS";
+                Host.FileSystemName = FileSystemName;
                 if (0 > Host.Mount(MountPoint, null, false, DebugFlags))
                     throw new IOException("cannot mount file system");
                 MountPoint = Host.MountPoint();
@@ -1486,7 +1486,7 @@ namespace memfs
                     "    -M MaxDelay         [maximum slow IO delay in millis]\n" +
                     "    -P PercentDelay     [percent of slow IO to make pending]\n" +
                     "    -R RarefyDelay      [adjust the rarity of pending slow IO]\n" +
-                    "    -F FileSystemName\n" +
+                    "    -F FileSystemName  [default: NTFS]\n" +
                     "    -S RootSddl         [file rights: FA, etc; NO generic rights: GA, etc.]\n" +
                     "    -u \\Server\\Share    [UNC prefix (single backslash)]\n" +
                     "    -m MountPoint       [X:|* (required if no UNC prefix)]\n",

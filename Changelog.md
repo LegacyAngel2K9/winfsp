@@ -57,6 +57,8 @@
 
 - [TEST] Cover loading a companion DLL from WinFsp volumes to guard executable scenarios that depend on same-directory DLL loads. See GitHub issue #599.
 
+- [MEMFS] Report `NTFS` by default from the standalone MEMFS samples so elevated executables work on newer Windows versions. See GitHub issue #611.
+
 
 ## v2.2B2 (2026 Beta2)
 

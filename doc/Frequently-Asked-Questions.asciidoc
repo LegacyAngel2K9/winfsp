@@ -12,6 +12,8 @@ I am running Windows 7 and I am finding that the installed driver is not signed.
 I cannot run a program located in a WinFsp drive as administrator. I cannot run `regedit.exe` from within a WinFsp drive.::
 
     When running an executable as administrator, the Windows OS seems to require that the name of the file system that is housing the executable is "NTFS". For example, the MEMFS file system with the command line `memfs-x64.exe -i -F NTFS -m X:` works.
++
+Current MEMFS command-line samples report `NTFS` by default; pass `-F -MEMFS` only when you need the diagnostic `WinFsp-MEMFS` name.
 
 
 The installer reports that a running WinFsp service is blocking setup, but I never installed WinFsp.::
