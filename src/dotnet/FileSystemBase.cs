@@ -1271,6 +1271,16 @@ namespace Fsp
             return Api.FspWin32FromNtStatus(Status);
         }
         /// <summary>
+        /// Gets the requested share access.
+        /// </summary>
+        /// <remarks>
+        /// Valid only during Create and Open requests.
+        /// </remarks>
+        public static UInt32 GetOperationShareAccess()
+        {
+            return Api.FspFileSystemOperationShareAccess();
+        }
+        /// <summary>
         /// Gets the originating process ID.
         /// </summary>
         /// <remarks>

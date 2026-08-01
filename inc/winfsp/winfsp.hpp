@@ -358,6 +358,10 @@ public:
     {
         return _FileSystemPtr;
     }
+    static UINT32 GetOperationShareAccess()
+    {
+        return FspFileSystemOperationShareAccess();
+    }
     static VOID DeleteDirectoryBuffer(PVOID *PDirBuffer)
     {
         FspFileSystemDeleteDirectoryBuffer(PDirBuffer);

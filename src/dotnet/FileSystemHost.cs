@@ -567,6 +567,13 @@ namespace Fsp
             return Api.FspFileSystemGetOperationRequestHint();
         }
         /// <summary>
+        /// Returns the requested share access for the current Create or Open operation.
+        /// </summary>
+        public UInt32 GetOperationShareAccess()
+        {
+            return Api.FspFileSystemOperationShareAccess();
+        }
+        /// <summary>
         /// Returns the originating process ID for the current operation.
         /// </summary>
         public UInt32 GetOperationProcessId()

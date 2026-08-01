@@ -590,6 +590,11 @@ FSP_API BOOLEAN FspFileSystemIsOperationCaseSensitiveF(VOID)
     return FspFileSystemIsOperationCaseSensitive();
 }
 
+FSP_API UINT32 FspFileSystemOperationShareAccessF(VOID)
+{
+    return FspFileSystemOperationShareAccess();
+}
+
 FSP_API HANDLE FspFileSystemOperationAccessTokenF(VOID)
 {
     return FspFileSystemOperationAccessToken();

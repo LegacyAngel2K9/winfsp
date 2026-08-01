@@ -1442,6 +1442,24 @@ BOOLEAN FspFileSystemIsOperationCaseSensitive(VOID)
 }
 FSP_API BOOLEAN FspFileSystemIsOperationCaseSensitiveF(VOID);
 /**
+ * Gets the requested share access.
+ *
+ * Valid only during Create and Open requests.
+ */
+static inline
+UINT32 FspFileSystemOperationShareAccess(VOID)
+{
+    FSP_FSCTL_TRANSACT_REQ *Request = FspFileSystemGetOperationContext()->Request;
+    switch (Request->Kind)
+    {
+    case FspFsctlTransactCreateKind:
+        return Request->Req.Create.ShareAccess;
+    default:
+        return 0;
+    }
+}
+FSP_API UINT32 FspFileSystemOperationShareAccessF(VOID);
+/**
  * Gets the originating process ID.
  *
  * Valid only during Create, Open, Rename and Link requests when the target exists.
