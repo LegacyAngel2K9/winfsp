@@ -27,6 +27,8 @@
 
 - [FIX] Improve installer diagnostics when a third-party or older `WinFsp` service blocks setup. See GitHub issue #499.
 
+- [FUSE] Treat ownership changes during file creation as best-effort when the server denies `chown`, avoiding Explorer duplicate-copy retries with SSHFS. See GitHub issue #503.
+
 
 ## v2.2B2 (2026 Beta2)
 

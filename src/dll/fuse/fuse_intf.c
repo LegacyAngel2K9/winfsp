@@ -603,6 +603,16 @@ static NTSTATUS fsp_fuse_intf_GetFileInfoFunnel(FSP_FILE_SYSTEM *FileSystem,
     return STATUS_SUCCESS;
 }
 
+static inline BOOLEAN fsp_fuse_intf_CanIgnoreCreateChownResult(NTSTATUS Result)
+{
+    return
+        STATUS_ACCESS_DENIED == Result ||
+        STATUS_PRIVILEGE_NOT_HELD == Result ||
+        STATUS_INVALID_OWNER == Result ||
+        STATUS_NOT_SUPPORTED == Result ||
+        STATUS_INVALID_DEVICE_REQUEST == Result;
+}
+
 static BOOLEAN fsp_fuse_intf_GetCachedFileInfo(struct fuse *f,
     struct fsp_fuse_file_desc *filedesc,
     PUINT32 PUid, PUINT32 PGid, PUINT32 PMode,
@@ -1234,7 +1244,13 @@ static NTSTATUS fsp_fuse_intf_Create(FSP_FILE_SYSTEM *FileSystem,
     {
         err = f->ops.chown(contexthdr->PosixPath, Uid, Gid);
         Result = fsp_fuse_ntstatus_from_errno(f->env, err);
-        if (!NT_SUCCESS(Result) && STATUS_INVALID_DEVICE_REQUEST != Result)
+        /*
+         * On file creation this chown is best-effort. SSHFS/SFTP servers often
+         * deny it after successfully creating the file; failing Create at that
+         * point leaves an empty remote file and makes Explorer retry with a
+         * duplicate name.
+         */
+        if (!NT_SUCCESS(Result) && !fsp_fuse_intf_CanIgnoreCreateChownResult(Result))
             goto exit;
     }
 
