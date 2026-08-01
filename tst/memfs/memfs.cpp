@@ -1144,7 +1144,11 @@ static NTSTATUS Create(FSP_FILE_SYSTEM *FileSystem,
 
     ParentNode = MemfsFileNodeMapGetParent(Memfs->FileNodeMap, FileName, &Result);
     if (0 == ParentNode)
+    {
+        if (STATUS_NOT_A_DIRECTORY == Result)
+            Result = STATUS_OBJECT_PATH_NOT_FOUND;
         return Result;
+    }
 
     if (MemfsFileNodeMapCount(Memfs->FileNodeMap) >= Memfs->MaxFileNodes)
         return STATUS_CANNOT_MAKE;

@@ -293,7 +293,11 @@ FSP_API NTSTATUS FspAccessCheckEx(FSP_FILE_SYSTEM *FileSystem,
 
         if (0 == (FileAttributes & FILE_ATTRIBUTE_DIRECTORY))
         {
-            Result = STATUS_NOT_A_DIRECTORY;
+            /*
+             * Match NTFS create behavior: creating below a non-directory parent
+             * reports a missing path, not a bad directory open.
+             */
+            Result = STATUS_OBJECT_PATH_NOT_FOUND;
             goto exit;
         }
     }
@@ -392,7 +396,8 @@ exit:
     {
         FspPathCombine((PWSTR)Request->Buffer, Suffix);
 
-        if (STATUS_OBJECT_NAME_NOT_FOUND == Result)
+        if (STATUS_OBJECT_NAME_NOT_FOUND == Result ||
+            STATUS_NOT_A_DIRECTORY == Result)
             Result = STATUS_OBJECT_PATH_NOT_FOUND;
     }
     else if (CheckMainFile)

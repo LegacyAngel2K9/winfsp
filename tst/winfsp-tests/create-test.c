@@ -236,6 +236,69 @@ void create_test(void)
         create_dotest(MemfsNet, L"\\\\memfs\\share");
 }
 
+static void create_not_directory_path_dotest(ULONG Flags, PWSTR Prefix)
+{
+    void *memfs = memfs_start(Flags);
+
+    HANDLE Handle;
+    WCHAR FilePath[MAX_PATH];
+
+    StringCbPrintfW(FilePath, sizeof FilePath, L"%s%s\\file0",
+        Prefix ? L"" : L"\\\\?\\GLOBALROOT", Prefix ? Prefix : memfs_volumename(memfs));
+
+    Handle = CreateFileW(FilePath,
+        GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, 0, CREATE_NEW,
+        FILE_ATTRIBUTE_NORMAL, 0);
+    ASSERT(INVALID_HANDLE_VALUE != Handle);
+    CloseHandle(Handle);
+
+    StringCbPrintfW(FilePath, sizeof FilePath, L"%s%s\\file0\\file1",
+        Prefix ? L"" : L"\\\\?\\GLOBALROOT", Prefix ? Prefix : memfs_volumename(memfs));
+
+    Handle = CreateFileW(FilePath,
+        GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, 0, CREATE_NEW,
+        FILE_ATTRIBUTE_NORMAL, 0);
+    ASSERT(INVALID_HANDLE_VALUE == Handle);
+    ASSERT(ERROR_PATH_NOT_FOUND == GetLastError());
+
+    Handle = CreateFileW(FilePath,
+        GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, 0, OPEN_EXISTING,
+        FILE_ATTRIBUTE_NORMAL, 0);
+    ASSERT(INVALID_HANDLE_VALUE == Handle);
+    ASSERT(ERROR_DIRECTORY == GetLastError());
+
+    StringCbPrintfW(FilePath, sizeof FilePath, L"%s%s\\file0\\file1\\file2",
+        Prefix ? L"" : L"\\\\?\\GLOBALROOT", Prefix ? Prefix : memfs_volumename(memfs));
+
+    Handle = CreateFileW(FilePath,
+        GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, 0, CREATE_NEW,
+        FILE_ATTRIBUTE_NORMAL, 0);
+    ASSERT(INVALID_HANDLE_VALUE == Handle);
+    ASSERT(ERROR_PATH_NOT_FOUND == GetLastError());
+
+    Handle = CreateFileW(FilePath,
+        GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, 0, OPEN_EXISTING,
+        FILE_ATTRIBUTE_NORMAL, 0);
+    ASSERT(INVALID_HANDLE_VALUE == Handle);
+    ASSERT(ERROR_PATH_NOT_FOUND == GetLastError());
+
+    memfs_stop(memfs);
+}
+
+static void create_not_directory_path_test(void)
+{
+    if (NtfsTests)
+    {
+        WCHAR DirBuf[MAX_PATH];
+        GetTestDirectory(DirBuf);
+        create_not_directory_path_dotest(-1, DirBuf);
+    }
+    if (WinFspDiskTests)
+        create_not_directory_path_dotest(MemfsDisk, 0);
+    if (WinFspNetTests)
+        create_not_directory_path_dotest(MemfsNet, L"\\\\memfs\\share");
+}
+
 static void create_fileattr_dotest(ULONG Flags, PWSTR Prefix)
 {
     void *memfs = memfs_start(Flags);
@@ -1399,6 +1462,7 @@ void create_pid_test(void)
 void create_tests(void)
 {
     TEST(create_test);
+    TEST(create_not_directory_path_test);
     TEST(create_fileattr_test);
     TEST(create_readonlydir_test);
     TEST(create_related_test);

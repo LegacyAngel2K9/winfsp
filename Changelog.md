@@ -29,6 +29,8 @@
 
 - [FUSE] Treat ownership changes during file creation as best-effort when the server denies `chown`, avoiding Explorer duplicate-copy retries with SSHFS. See GitHub issue #503.
 
+- [MEMFS] Match NTFS path errors when creating files below an existing file. See GitHub issue #504.
+
 
 ## v2.2B2 (2026 Beta2)
 
