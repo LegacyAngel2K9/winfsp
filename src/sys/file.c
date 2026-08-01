@@ -780,7 +780,7 @@ exit:
 
         if (0 == OpenedFileNode->ActiveCount++)
             InsertTailList(&FspFsvolDeviceExtension(FsvolDeviceObject)->ContextList,
-                &FileNode->ActiveEntry);
+                &OpenedFileNode->ActiveEntry);
         OpenedFileNode->OpenCount++;
         OpenedFileNode->HandleCount++;
     }
