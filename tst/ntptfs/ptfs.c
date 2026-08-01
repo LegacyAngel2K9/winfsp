@@ -81,7 +81,7 @@ static NTSTATUS GetSecurityByName(FSP_FILE_SYSTEM *FileSystem,
     PTFS *Ptfs = FileSystemContext;
     HANDLE Handle = 0;
     IO_STATUS_BLOCK Iosb;
-    FILE_ATTRIBUTE_TAG_INFORMATION FileAttrInfo;
+    FILE_BASIC_INFORMATION FileBasicInfo;
     ULONG SecurityDescriptorSizeNeeded;
     NTSTATUS Result;
 
@@ -107,17 +107,17 @@ static NTSTATUS GetSecurityByName(FSP_FILE_SYSTEM *FileSystem,
         Result = NtQueryInformationFile(
             Handle,
             &Iosb,
-            &FileAttrInfo,
-            sizeof FileAttrInfo,
-            35/*FileAttributeTagInformation*/);
+            &FileBasicInfo,
+            sizeof FileBasicInfo,
+            4/*FileBasicInformation*/);
         if (!NT_SUCCESS(Result))
             goto exit;
 
-        *PFileAttributes = FileAttrInfo.FileAttributes;
+        *PFileAttributes = FileBasicInfo.FileAttributes;
 
         /* cache FileAttributes for Open */
         FspFileSystemGetOperationContext()->Response->Rsp.Create.Opened.FileInfo.FileAttributes =
-            FileAttrInfo.FileAttributes;
+            FileBasicInfo.FileAttributes;
     }
 
     if (0 != PSecurityDescriptorSize)
