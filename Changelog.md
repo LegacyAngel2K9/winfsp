@@ -39,6 +39,8 @@
 
 - [FIX] Add a Win32 fallback for directory mount point creation on virtual or pooled volumes that reject the direct native create path. See GitHub issue #512.
 
+- [FIX] Teach the passthrough sample to proxy backing reparse points so junction/symlink chains can be resolved by Windows. See GitHub issue #518.
+
 
 ## v2.2B2 (2026 Beta2)
 
