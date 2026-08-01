@@ -860,6 +860,8 @@ namespace Fsp.Interop
             [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
             internal delegate UInt32 FspFileSystemOperationProcessIdF();
             [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+            internal delegate IntPtr FspFileSystemOperationAccessTokenF();
+            [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
             [return: MarshalAs(UnmanagedType.U1)]
             internal delegate Boolean FspFileSystemAddDirInfo(
                 IntPtr DirInfo,
@@ -1051,6 +1053,7 @@ namespace Fsp.Interop
         internal static Proto.FspFileSystemSetOperationGuardStrategyF FspFileSystemSetOperationGuardStrategy;
         internal static Proto.FspFileSystemSetDebugLogF FspFileSystemSetDebugLog;
         internal static Proto.FspFileSystemOperationProcessIdF FspFileSystemOperationProcessId;
+        internal static Proto.FspFileSystemOperationAccessTokenF FspFileSystemOperationAccessToken;
         internal static Proto.FspFileSystemAddDirInfo _FspFileSystemAddDirInfo;
         internal static Proto.FspFileSystemFindReparsePoint FspFileSystemFindReparsePoint;
         internal static Proto.FspFileSystemResolveReparsePoints FspFileSystemResolveReparsePoints;
@@ -1515,6 +1518,7 @@ namespace Fsp.Interop
             FspFileSystemSetOperationGuardStrategy = GetEntryPoint<Proto.FspFileSystemSetOperationGuardStrategyF>(Module);
             FspFileSystemSetDebugLog = GetEntryPoint<Proto.FspFileSystemSetDebugLogF>(Module);
             FspFileSystemOperationProcessId = GetEntryPoint<Proto.FspFileSystemOperationProcessIdF>(Module);
+            FspFileSystemOperationAccessToken = GetEntryPoint<Proto.FspFileSystemOperationAccessTokenF>(Module);
             _FspFileSystemAddDirInfo = GetEntryPoint<Proto.FspFileSystemAddDirInfo>(Module);
             FspFileSystemFindReparsePoint = GetEntryPoint<Proto.FspFileSystemFindReparsePoint>(Module);
             FspFileSystemResolveReparsePoints = GetEntryPoint<Proto.FspFileSystemResolveReparsePoints>(Module);

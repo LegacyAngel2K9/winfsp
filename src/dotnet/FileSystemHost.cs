@@ -559,6 +559,24 @@ namespace Fsp
             return Api.FspFileSystemGetOperationRequestHint();
         }
         /// <summary>
+        /// Returns the originating process ID for the current operation.
+        /// </summary>
+        public UInt32 GetOperationProcessId()
+        {
+            return Api.FspFileSystemOperationProcessId();
+        }
+        /// <summary>
+        /// Returns the originating access token for the current operation.
+        /// </summary>
+        /// <remarks>
+        /// The returned handle is owned by WinFsp and is valid only during the current
+        /// operation callback. Duplicate the handle if it must outlive the callback.
+        /// </remarks>
+        public IntPtr GetOperationAccessToken()
+        {
+            return Api.FspFileSystemOperationAccessToken();
+        }
+        /// <summary>
         /// Asynchronously complete a Read operation.
         /// </summary>
         /// <param name="RequestHint">
