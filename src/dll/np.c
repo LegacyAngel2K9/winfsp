@@ -227,29 +227,72 @@ static NTSTATUS FspNpGetVolumeList(
     }
 }
 
-static WCHAR FspNpGetDriveLetter(PDWORD PLogicalDrives, PWSTR VolumeName)
+static BOOLEAN FspNpGetVolumeNameForDrive(WCHAR Drive, PWSTR VolumeNameBuf, DWORD VolumeNameBufSize)
+{
+    WCHAR LocalNameBuf[3];
+
+    LocalNameBuf[0] = Drive;
+    LocalNameBuf[1] = L':';
+    LocalNameBuf[2] = L'\0';
+
+    return QueryDosDeviceW(LocalNameBuf, VolumeNameBuf, VolumeNameBufSize);
+}
+
+static BOOLEAN FspNpGetVolumeNameForMountPoint(WCHAR Drive, PWSTR VolumeNameBuf, DWORD VolumeNameBufSize)
+{
+    WCHAR RootPathName[4];
+    WCHAR VolumeGuidName[MAX_PATH], *VolumeGuid;
+    DWORD VolumeGuidLength;
+
+    RootPathName[0] = Drive;
+    RootPathName[1] = L':';
+    RootPathName[2] = L'\\';
+    RootPathName[3] = L'\0';
+    if (!GetVolumeNameForVolumeMountPointW(RootPathName, VolumeGuidName,
+        sizeof VolumeGuidName / sizeof(WCHAR)))
+        return FALSE;
+
+    VolumeGuid = VolumeGuidName;
+    if (L'\\' == VolumeGuid[0] && L'\\' == VolumeGuid[1] &&
+        L'?' == VolumeGuid[2] && L'\\' == VolumeGuid[3])
+        VolumeGuid += 4;
+
+    VolumeGuidLength = lstrlenW(VolumeGuid);
+    if (0 != VolumeGuidLength && L'\\' == VolumeGuid[VolumeGuidLength - 1])
+        VolumeGuid[VolumeGuidLength - 1] = L'\0';
+
+    return QueryDosDeviceW(VolumeGuid, VolumeNameBuf, VolumeNameBufSize);
+}
+
+static BOOLEAN FspNpDriveVolumeNameMatches(WCHAR Drive, PWSTR VolumeName)
 {
     WCHAR VolumeNameBuf[MAX_PATH];
-    WCHAR LocalNameBuf[3];
+
+    if (FspNpGetVolumeNameForDrive(Drive, VolumeNameBuf, sizeof VolumeNameBuf / sizeof(WCHAR)) &&
+        0 == invariant_wcscmp(VolumeNameBuf, VolumeName))
+        return TRUE;
+
+    if (FspNpGetVolumeNameForMountPoint(Drive, VolumeNameBuf, sizeof VolumeNameBuf / sizeof(WCHAR)) &&
+        0 == invariant_wcscmp(VolumeNameBuf, VolumeName))
+        return TRUE;
+
+    return FALSE;
+}
+
+static WCHAR FspNpGetDriveLetter(PDWORD PLogicalDrives, PWSTR VolumeName)
+{
     WCHAR Drive;
 
     if (0 == *PLogicalDrives)
         return 0;
 
-    LocalNameBuf[1] = L':';
-    LocalNameBuf[2] = L'\0';
-
     for (Drive = 'Z'; 'A' <= Drive; Drive--)
         if (0 != (*PLogicalDrives & (1 << (Drive - 'A'))))
         {
-            LocalNameBuf[0] = Drive;
-            if (QueryDosDeviceW(LocalNameBuf, VolumeNameBuf, sizeof VolumeNameBuf / sizeof(WCHAR)))
+            if (FspNpDriveVolumeNameMatches(Drive, VolumeName))
             {
-                if (0 == invariant_wcscmp(VolumeNameBuf, VolumeName))
-                {
-                    *PLogicalDrives &= ~(1 << (Drive - 'A'));
-                    return Drive;
-                }
+                *PLogicalDrives &= ~(1 << (Drive - 'A'));
+                return Drive;
             }
         }
 
@@ -496,9 +539,11 @@ DWORD APIENTRY NPGetConnection(
     NTSTATUS Result;
     WCHAR LocalNameBuf[3];
     WCHAR VolumeNameBuf[FSP_FSCTL_VOLUME_NAME_SIZEMAX / sizeof(WCHAR)];
+    WCHAR VolumeNameAltBuf[FSP_FSCTL_VOLUME_NAME_SIZEMAX / sizeof(WCHAR)];
     PWCHAR VolumeListBuf = 0, VolumeListBufEnd, VolumeName, P;
     SIZE_T VolumeListSize, VolumeNameSize;
     ULONG Backslashes;
+    BOOLEAN HasVolumeName, HasVolumeNameAlt;
 
     if (!FspNpCheckLocalName(lpLocalName))
         return WN_BAD_LOCALNAME;
@@ -507,7 +552,11 @@ DWORD APIENTRY NPGetConnection(
     LocalNameBuf[1] = L':';
     LocalNameBuf[2] = L'\0';
 
-    if (0 == QueryDosDeviceW(LocalNameBuf, VolumeNameBuf, sizeof VolumeNameBuf))
+    HasVolumeName = FspNpGetVolumeNameForDrive(LocalNameBuf[0], VolumeNameBuf,
+        sizeof VolumeNameBuf / sizeof(WCHAR));
+    HasVolumeNameAlt = FspNpGetVolumeNameForMountPoint(LocalNameBuf[0], VolumeNameAltBuf,
+        sizeof VolumeNameAltBuf / sizeof(WCHAR));
+    if (!HasVolumeName && !HasVolumeNameAlt)
         return WN_NOT_CONNECTED;
 
     Result = FspNpGetVolumeList(&VolumeListBuf, &VolumeListSize);
@@ -520,7 +569,8 @@ DWORD APIENTRY NPGetConnection(
     {
         if (L'\0' == *P)
         {
-            if (0 == invariant_wcscmp(VolumeNameBuf, VolumeName))
+            if ((HasVolumeName && 0 == invariant_wcscmp(VolumeNameBuf, VolumeName)) ||
+                (HasVolumeNameAlt && 0 == invariant_wcscmp(VolumeNameAltBuf, VolumeName)))
             {
                 /*
                  * Looks like this is a WinFsp device. Extract the VolumePrefix from the VolumeName.
