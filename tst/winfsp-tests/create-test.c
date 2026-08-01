@@ -299,6 +299,65 @@ static void create_not_directory_path_test(void)
         create_not_directory_path_dotest(MemfsNet, L"\\\\memfs\\share");
 }
 
+static void create_open_reparse_file_dotest(ULONG Flags, PWSTR Prefix)
+{
+    void *memfs = memfs_start(Flags);
+
+    HANDLE FileHandle;
+    NTSTATUS Result;
+    BOOLEAN Success;
+    WCHAR RootPath[MAX_PATH], FilePath[MAX_PATH], NativePath[MAX_PATH];
+    UNICODE_STRING UnicodePath;
+    OBJECT_ATTRIBUTES Obja;
+    IO_STATUS_BLOCK Iosb;
+
+    StringCbPrintfW(RootPath, sizeof RootPath, L"%s%s",
+        Prefix ? L"" : L"\\\\?\\GLOBALROOT", Prefix ? Prefix : memfs_volumename(memfs));
+    StringCbPrintfW(FilePath, sizeof FilePath, L"%s\\file0", RootPath);
+
+    DeleteFileW(FilePath);
+
+    FileHandle = CreateFileW(FilePath,
+        GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, 0, CREATE_NEW,
+        FILE_ATTRIBUTE_NORMAL, 0);
+    ASSERT(INVALID_HANDLE_VALUE != FileHandle);
+    CloseHandle(FileHandle);
+
+    StringCbPrintfW(NativePath, sizeof NativePath, L"%s\\file0", memfs_volumename(memfs));
+    UnicodePath.Length = (USHORT)wcslen(NativePath) * sizeof(WCHAR);
+    UnicodePath.MaximumLength = sizeof NativePath;
+    UnicodePath.Buffer = NativePath;
+    InitializeObjectAttributes(&Obja, &UnicodePath, OBJ_CASE_INSENSITIVE, 0, 0);
+    Result = NtCreateFile(&FileHandle,
+        SYNCHRONIZE | FILE_READ_ATTRIBUTES, &Obja, &Iosb,
+        0, FILE_ATTRIBUTE_NORMAL, FILE_SHARE_READ | FILE_SHARE_WRITE,
+        FILE_OPEN, FILE_OPEN_REPARSE_POINT | FILE_SYNCHRONOUS_IO_NONALERT, 0, 0);
+    ASSERT(STATUS_SUCCESS == Result);
+    CloseHandle(FileHandle);
+
+    wcscat_s(NativePath, sizeof NativePath / sizeof(WCHAR), L"\\");
+    UnicodePath.Length = (USHORT)wcslen(NativePath) * sizeof(WCHAR);
+    UnicodePath.MaximumLength = sizeof NativePath;
+    UnicodePath.Buffer = NativePath;
+    InitializeObjectAttributes(&Obja, &UnicodePath, OBJ_CASE_INSENSITIVE, 0, 0);
+    Result = NtCreateFile(&FileHandle,
+        SYNCHRONIZE | FILE_READ_ATTRIBUTES, &Obja, &Iosb,
+        0, FILE_ATTRIBUTE_NORMAL, FILE_SHARE_READ | FILE_SHARE_WRITE,
+        FILE_OPEN, FILE_OPEN_REPARSE_POINT | FILE_SYNCHRONOUS_IO_NONALERT, 0, 0);
+    ASSERT(STATUS_OBJECT_NAME_INVALID == Result);
+
+    Success = DeleteFileW(FilePath);
+    ASSERT(Success || (NtfsTests && ERROR_FILE_NOT_FOUND == GetLastError()));
+
+    memfs_stop(memfs);
+}
+
+static void create_open_reparse_file_test(void)
+{
+    if (WinFspDiskTests)
+        create_open_reparse_file_dotest(MemfsDisk, 0);
+}
+
 static void create_fileattr_dotest(ULONG Flags, PWSTR Prefix)
 {
     void *memfs = memfs_start(Flags);
@@ -1463,6 +1522,7 @@ void create_tests(void)
 {
     TEST(create_test);
     TEST(create_not_directory_path_test);
+    TEST(create_open_reparse_file_test);
     TEST(create_fileattr_test);
     TEST(create_readonlydir_test);
     TEST(create_related_test);
