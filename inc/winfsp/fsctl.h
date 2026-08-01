@@ -712,7 +712,8 @@ typedef struct
     HANDLE VolumeHandle;                /* volume handle returned by FspFsctlCreateVolume */
     PWSTR VolumeName;                   /* volume name returned by FspFsctlCreateVolume */
     PSECURITY_DESCRIPTOR Security;      /* optional: security descriptor for directories */
-    UINT64 Reserved;                    /* reserved for future use */
+    UINT64 AllowMountOnExistingDirectory:1; /* allow directory mounts over existing directories */
+    UINT64 Reserved:63;                 /* reserved for future use */
     /* in/out */
     PWSTR MountPoint;                   /* FspMountSet sets drive in buffer when passed "*:" */
     HANDLE MountHandle;                 /* FspMountSet sets, FspMountRemove uses */

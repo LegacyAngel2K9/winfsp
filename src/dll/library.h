@@ -63,6 +63,9 @@ VOID FspServiceFinalize(BOOLEAN Dynamic);
 VOID fsp_fuse_finalize(BOOLEAN Dynamic);
 VOID fsp_fuse_finalize_thread(VOID);
 
+NTSTATUS FspFileSystemSetMountPointEx2(FSP_FILE_SYSTEM *FileSystem, PWSTR MountPoint,
+    PSECURITY_DESCRIPTOR SecurityDescriptor, BOOLEAN AllowMountOnExistingDirectory);
+
 NTSTATUS FspFsctlRegister(VOID);
 NTSTATUS FspFsctlUnregister(VOID);
 NTSTATUS FspNpRegister(VOID);

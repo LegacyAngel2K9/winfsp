@@ -177,11 +177,17 @@ FSP_API VOID FspFileSystemDelete(FSP_FILE_SYSTEM *FileSystem)
 
 FSP_API NTSTATUS FspFileSystemSetMountPoint(FSP_FILE_SYSTEM *FileSystem, PWSTR MountPoint)
 {
-    return FspFileSystemSetMountPointEx(FileSystem, MountPoint, 0);
+    return FspFileSystemSetMountPointEx2(FileSystem, MountPoint, 0, FALSE);
 }
 
 FSP_API NTSTATUS FspFileSystemSetMountPointEx(FSP_FILE_SYSTEM *FileSystem, PWSTR MountPoint,
     PSECURITY_DESCRIPTOR SecurityDescriptor)
+{
+    return FspFileSystemSetMountPointEx2(FileSystem, MountPoint, SecurityDescriptor, FALSE);
+}
+
+NTSTATUS FspFileSystemSetMountPointEx2(FSP_FILE_SYSTEM *FileSystem, PWSTR MountPoint,
+    PSECURITY_DESCRIPTOR SecurityDescriptor, BOOLEAN AllowMountOnExistingDirectory)
 {
     if (0 != FileSystem->MountPoint)
         return STATUS_INVALID_PARAMETER;
@@ -194,6 +200,7 @@ FSP_API NTSTATUS FspFileSystemSetMountPointEx(FSP_FILE_SYSTEM *FileSystem, PWSTR
     Desc.VolumeHandle = FileSystem->VolumeHandle;
     Desc.VolumeName = FileSystem->VolumeName;
     Desc.Security = SecurityDescriptor;
+    Desc.AllowMountOnExistingDirectory = AllowMountOnExistingDirectory;
 
     if (0 == MountPoint)
         MountPoint = L"*:";

@@ -91,7 +91,8 @@ static BOOL WINAPI FspMountInitialize(
 }
 
 static NTSTATUS FspMountSet_Directory(PWSTR VolumeName, PWSTR MountPoint,
-    PSECURITY_DESCRIPTOR SecurityDescriptor, PHANDLE PMountHandle);
+    PSECURITY_DESCRIPTOR SecurityDescriptor, BOOLEAN AllowMountOnExistingDirectory,
+    PHANDLE PMountHandle);
 static NTSTATUS FspMountRemove_Directory(HANDLE MountHandle);
 
 static NTSTATUS FspMountSet_MountmgrDrive(HANDLE VolumeHandle, PWSTR VolumeName, PWSTR MountPoint)
@@ -125,7 +126,8 @@ exit:
 }
 
 static NTSTATUS FspMountSet_MountmgrDirectory(HANDLE VolumeHandle, PWSTR VolumeName, PWSTR MountPoint,
-    PSECURITY_DESCRIPTOR SecurityDescriptor, PHANDLE PMountHandle)
+    PSECURITY_DESCRIPTOR SecurityDescriptor, BOOLEAN AllowMountOnExistingDirectory,
+    PHANDLE PMountHandle)
 {
     GUID UniqueId;
     HANDLE MountHandle = INVALID_HANDLE_VALUE;
@@ -134,7 +136,8 @@ static NTSTATUS FspMountSet_MountmgrDirectory(HANDLE VolumeHandle, PWSTR VolumeN
     *PMountHandle = 0;
 
     /* create the directory mount point */
-    Result = FspMountSet_Directory(VolumeName, MountPoint + 4, SecurityDescriptor, &MountHandle);
+    Result = FspMountSet_Directory(VolumeName, MountPoint + 4, SecurityDescriptor,
+        AllowMountOnExistingDirectory, &MountHandle);
     if (!NT_SUCCESS(Result))
         goto exit;
 
@@ -472,11 +475,13 @@ static NTSTATUS FspMountRemove_Drive(PWSTR VolumeName, PWSTR MountPoint, HANDLE 
 }
 
 static NTSTATUS FspMountSet_Directory(PWSTR VolumeName, PWSTR MountPoint,
-    PSECURITY_DESCRIPTOR SecurityDescriptor, PHANDLE PMountHandle)
+    PSECURITY_DESCRIPTOR SecurityDescriptor, BOOLEAN AllowMountOnExistingDirectory,
+    PHANDLE PMountHandle)
 {
     NTSTATUS Result;
     SECURITY_ATTRIBUTES SecurityAttributes;
     HANDLE MountHandle = INVALID_HANDLE_VALUE;
+    BOOLEAN ExistingDirectory = FALSE;
     DWORD Backslashes, Bytes;
     USHORT VolumeNameLength, BackslashLength, ReparseDataLength;
     PREPARSE_DATA_BUFFER ReparseData = 0;
@@ -502,12 +507,50 @@ static NTSTATUS FspMountSet_Directory(PWSTR VolumeName, PWSTR MountPoint,
     SecurityAttributes.nLength = sizeof SecurityAttributes;
     SecurityAttributes.lpSecurityDescriptor = SecurityDescriptor;
 
-    MountHandle = FspCreateDirectoryFileW(MountPoint,
-        FILE_WRITE_ATTRIBUTES,
-        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
-        &SecurityAttributes,
-        FILE_ATTRIBUTE_DIRECTORY |
-            FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_POSIX_SEMANTICS | FILE_FLAG_DELETE_ON_CLOSE);
+    if (AllowMountOnExistingDirectory)
+    {
+        DWORD LastError;
+
+        MountHandle = CreateFileW(MountPoint,
+            FILE_WRITE_ATTRIBUTES,
+            FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+            &SecurityAttributes,
+            OPEN_EXISTING,
+            FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT,
+            0);
+        if (INVALID_HANDLE_VALUE != MountHandle)
+        {
+            BY_HANDLE_FILE_INFORMATION FileInfo;
+            if (!GetFileInformationByHandle(MountHandle, &FileInfo))
+            {
+                Result = FspNtStatusFromWin32(GetLastError());
+                goto exit;
+            }
+            if (0 == (FILE_ATTRIBUTE_DIRECTORY & FileInfo.dwFileAttributes))
+            {
+                Result = STATUS_NOT_A_DIRECTORY;
+                goto exit;
+            }
+            ExistingDirectory = TRUE;
+        }
+        else
+        {
+            LastError = GetLastError();
+            if (ERROR_FILE_NOT_FOUND != LastError && ERROR_PATH_NOT_FOUND != LastError)
+            {
+                Result = FspNtStatusFromWin32(LastError);
+                goto exit;
+            }
+        }
+    }
+
+    if (INVALID_HANDLE_VALUE == MountHandle)
+        MountHandle = FspCreateDirectoryFileW(MountPoint,
+            FILE_WRITE_ATTRIBUTES,
+            FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+            &SecurityAttributes,
+            FILE_ATTRIBUTE_DIRECTORY |
+                FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_POSIX_SEMANTICS | FILE_FLAG_DELETE_ON_CLOSE);
     if (INVALID_HANDLE_VALUE == MountHandle)
     {
         Result = FspNtStatusFromWin32(GetLastError());
@@ -563,7 +606,7 @@ static NTSTATUS FspMountSet_Directory(PWSTR VolumeName, PWSTR MountPoint,
         goto exit;
     }
 
-    *PMountHandle = MountHandle;
+    *PMountHandle = (HANDLE)((UINT_PTR)MountHandle | ExistingDirectory);
 
     Result = STATUS_SUCCESS;
 
@@ -578,8 +621,28 @@ exit:
 
 static NTSTATUS FspMountRemove_Directory(HANDLE MountHandle)
 {
-    /* directory is marked DELETE_ON_CLOSE */
-    return CloseHandle(MountHandle) ? STATUS_SUCCESS : FspNtStatusFromWin32(GetLastError());
+    NTSTATUS Result = STATUS_SUCCESS;
+    BOOLEAN ExistingDirectory = 0 != ((UINT_PTR)MountHandle & 1);
+    MountHandle = (HANDLE)((UINT_PTR)MountHandle & ~(UINT_PTR)1);
+
+    if (ExistingDirectory)
+    {
+        REPARSE_DATA_BUFFER ReparseData;
+        DWORD Bytes;
+
+        memset(&ReparseData, 0, sizeof ReparseData);
+        ReparseData.ReparseTag = IO_REPARSE_TAG_MOUNT_POINT;
+        if (!DeviceIoControl(MountHandle, FSCTL_DELETE_REPARSE_POINT,
+            &ReparseData, REPARSE_DATA_BUFFER_HEADER_SIZE,
+            0, 0,
+            &Bytes, 0))
+            Result = FspNtStatusFromWin32(GetLastError());
+    }
+
+    if (!CloseHandle(MountHandle) && NT_SUCCESS(Result))
+        Result = FspNtStatusFromWin32(GetLastError());
+
+    return Result;
 }
 
 NTSTATUS FspMountSet_Internal(FSP_MOUNT_DESC *Desc)
@@ -614,13 +677,13 @@ NTSTATUS FspMountSet_Internal(FSP_MOUNT_DESC *Desc)
         return FspMountSet_MountmgrDrive(Desc->VolumeHandle, Desc->VolumeName, Desc->MountPoint);
     else if (FspPathIsMountmgrMountPoint(Desc->MountPoint))
         return FspMountSet_MountmgrDirectory(Desc->VolumeHandle, Desc->VolumeName, Desc->MountPoint,
-            Desc->Security, &Desc->MountHandle);
+            Desc->Security, Desc->AllowMountOnExistingDirectory, &Desc->MountHandle);
     else if (FspPathIsDrive(Desc->MountPoint))
         return FspMountSet_Drive(Desc->VolumeName, Desc->MountPoint,
             &Desc->MountHandle);
     else
         return FspMountSet_Directory(Desc->VolumeName, Desc->MountPoint, Desc->Security,
-            &Desc->MountHandle);
+            Desc->AllowMountOnExistingDirectory, &Desc->MountHandle);
 }
 
 NTSTATUS FspMountRemove_Internal(FSP_MOUNT_DESC *Desc)
