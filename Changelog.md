@@ -45,6 +45,8 @@
 
 - [DOC] Clarify Node.js/JavaScript binding status and guidance for third-party WinFsp packages. See GitHub issue #544.
 
+- [FIX] Keep auto-created directory mount points visible and writable until unmount, and remove them explicitly during unmount. See GitHub issue #551.
+
 
 ## v2.2B2 (2026 Beta2)
 
