@@ -29,6 +29,8 @@
 
 enum
 {
+    AirfsDirtyPageThreshold      = 16 * 1024,
+
     AirfsDisk                   = 0x00000000,
     AirfsNet                    = 0x00000001,
     AirfsDeviceMask             = 0x0000000f,
@@ -1195,6 +1197,8 @@ NTSTATUS AirfsCreate(
         V.VolumeCreationTime = SystemTime();
         V.VolumeSerialNumber = (UINT32)(SystemTime() / (10000 * 1000));
         V.FileInfoTimeout = FileInfoTimeout;
+        /* Keep large mapped/cached saves from dirtying too much memory at once. */
+        V.DirtyPageThreshold = AirfsDirtyPageThreshold;
         V.CaseSensitiveSearch = !CaseInsensitive;
         V.CasePreservedNames = 1;
         V.UnicodeOnDisk = 1;

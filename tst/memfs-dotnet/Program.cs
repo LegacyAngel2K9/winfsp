@@ -37,6 +37,11 @@ using FileInfo = Fsp.Interop.FileInfo;
 
 namespace memfs
 {
+    static class CacheSettings
+    {
+        public const UInt16 DirtyPageThreshold = 16 * 1024;
+    }
+
     class Path
     {
         public static String GetDirectoryName(String Path)
@@ -1449,6 +1454,8 @@ namespace memfs
                     CaseInsensitive, MaxFileNodes, MaxFileSize, RootSddl,
                     SlowioMaxDelay, SlowioPercentDelay, SlowioRarefyDelay));
                 Host.FileInfoTimeout = FileInfoTimeout;
+                /* Keep large mapped/cached saves from dirtying too much memory at once. */
+                Host.DirtyPageThreshold = CacheSettings.DirtyPageThreshold;
                 Host.Prefix = VolumePrefix;
                 Host.FileSystemName = null != FileSystemName ? FileSystemName : "-MEMFS";
                 if (0 > Host.Mount(MountPoint, null, false, DebugFlags))

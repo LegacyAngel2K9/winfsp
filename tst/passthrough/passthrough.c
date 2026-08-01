@@ -24,6 +24,7 @@
 
 #define PROGNAME                        "passthrough"
 #define ALLOCATION_UNIT                 4096
+#define DIRTY_PAGE_THRESHOLD            (16 * 1024)
 #define FULLPATH_SIZE                   (MAX_PATH + FSP_FSCTL_TRANSACT_PATH_SIZEMAX / sizeof(WCHAR))
 
 #define info(format, ...)               FspServiceLog(EVENTLOG_INFORMATION_TYPE, format, __VA_ARGS__)
@@ -725,6 +726,8 @@ static NTSTATUS PtfsCreate(PWSTR Path, PWSTR VolumePrefix, PWSTR MountPoint, UIN
     VolumeParams.VolumeCreationTime = ((PLARGE_INTEGER)&CreationTime)->QuadPart;
     VolumeParams.VolumeSerialNumber = 0;
     VolumeParams.FileInfoTimeout = 1000;
+    /* Keep large mapped/cached saves from dirtying too much memory at once. */
+    VolumeParams.DirtyPageThreshold = DIRTY_PAGE_THRESHOLD;
     VolumeParams.CaseSensitiveSearch = 0;
     VolumeParams.CasePreservedNames = 1;
     VolumeParams.UnicodeOnDisk = 1;

@@ -31,6 +31,7 @@
 #include <thread>
 
 #define MEMFS_MAX_PATH                  512
+#define MEMFS_DIRTY_PAGE_THRESHOLD      (16 * 1024)
 FSP_FSCTL_STATIC_ASSERT(MEMFS_MAX_PATH > MAX_PATH,
     "MEMFS_MAX_PATH must be greater than MAX_PATH.");
 
@@ -2444,6 +2445,8 @@ NTSTATUS MemfsCreateFunnel(
     VolumeParams.VolumeCreationTime = MemfsGetSystemTime();
     VolumeParams.VolumeSerialNumber = (UINT32)(MemfsGetSystemTime() / (10000 * 1000));
     VolumeParams.FileInfoTimeout = FileInfoTimeout;
+    /* Keep large mapped/cached saves from dirtying too much memory at once. */
+    VolumeParams.DirtyPageThreshold = MEMFS_DIRTY_PAGE_THRESHOLD;
     VolumeParams.CaseSensitiveSearch = !CaseInsensitive;
     VolumeParams.CasePreservedNames = 1;
     VolumeParams.UnicodeOnDisk = 1;

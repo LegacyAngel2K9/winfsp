@@ -21,6 +21,8 @@
 
 #include "ptfs.h"
 
+#define DIRTY_PAGE_THRESHOLD            (16 * 1024)
+
 #define FileSystemContext               ((PTFS *)(FileSystem)->UserContext)
 #define FileContextHandle               (((FILE_CONTEXT *)(FileContext))->Handle)
 #define FileContextIsDirectory          (((FILE_CONTEXT *)(FileContext))->IsDirectory)
@@ -1275,6 +1277,8 @@ NTSTATUS PtfsCreate(
     VolumeParams.VolumeCreationTime = FileAllInfo.BasicInformation.CreationTime.QuadPart;
     VolumeParams.VolumeSerialNumber = 0;
     VolumeParams.FileInfoTimeout = FileInfoTimeout;
+    /* Keep large mapped/cached saves from dirtying too much memory at once. */
+    VolumeParams.DirtyPageThreshold = DIRTY_PAGE_THRESHOLD;
     VolumeParams.CaseSensitiveSearch = 0;
     VolumeParams.CasePreservedNames = !!(FsAttrInfo.V.FileSystemAttributes & FILE_CASE_PRESERVED_NAMES);
     VolumeParams.UnicodeOnDisk = !!(FsAttrInfo.V.FileSystemAttributes & FILE_UNICODE_ON_DISK);
