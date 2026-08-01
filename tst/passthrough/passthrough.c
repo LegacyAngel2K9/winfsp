@@ -69,6 +69,44 @@ static NTSTATUS GetFileInfoInternal(HANDLE Handle, FSP_FSCTL_FILE_INFO *FileInfo
     return STATUS_SUCCESS;
 }
 
+static HANDLE CreateFileWithSecurityFallback(PWSTR FileName,
+    DWORD DesiredAccess, DWORD ShareMode, PSECURITY_ATTRIBUTES SecurityAttributes,
+    DWORD CreationDisposition, DWORD FlagsAndAttributes, HANDLE TemplateFile)
+{
+    HANDLE Handle = CreateFileW(FileName,
+        DesiredAccess, ShareMode, SecurityAttributes,
+        CreationDisposition, FlagsAndAttributes, TemplateFile);
+    if (INVALID_HANDLE_VALUE != Handle ||
+        0 == SecurityAttributes || 0 == SecurityAttributes->lpSecurityDescriptor)
+        return Handle;
+
+    DWORD LastError = GetLastError();
+    if (ERROR_INVALID_OWNER != LastError && ERROR_INVALID_PRIMARY_GROUP != LastError)
+    {
+        SetLastError(LastError);
+        return INVALID_HANDLE_VALUE;
+    }
+
+    SECURITY_DESCRIPTOR SecurityDescriptor;
+    SECURITY_ATTRIBUTES RetrySecurityAttributes = *SecurityAttributes;
+    BOOL DaclPresent, DaclDefaulted;
+    PACL Dacl;
+
+    if (!InitializeSecurityDescriptor(&SecurityDescriptor, SECURITY_DESCRIPTOR_REVISION) ||
+        !GetSecurityDescriptorDacl(SecurityAttributes->lpSecurityDescriptor,
+            &DaclPresent, &Dacl, &DaclDefaulted) ||
+        !SetSecurityDescriptorDacl(&SecurityDescriptor, DaclPresent, Dacl, DaclDefaulted))
+    {
+        SetLastError(LastError);
+        return INVALID_HANDLE_VALUE;
+    }
+
+    RetrySecurityAttributes.lpSecurityDescriptor = &SecurityDescriptor;
+    return CreateFileW(FileName,
+        DesiredAccess, ShareMode, &RetrySecurityAttributes,
+        CreationDisposition, FlagsAndAttributes, TemplateFile);
+}
+
 static NTSTATUS GetVolumeInfo(FSP_FILE_SYSTEM *FileSystem,
     FSP_FSCTL_VOLUME_INFO *VolumeInfo)
 {
@@ -198,7 +236,7 @@ static NTSTATUS Create(FSP_FILE_SYSTEM *FileSystem,
     if (0 == FileAttributes)
         FileAttributes = FILE_ATTRIBUTE_NORMAL;
 
-    FileContext->Handle = CreateFileW(FullPath,
+    FileContext->Handle = CreateFileWithSecurityFallback(FullPath,
         GrantedAccess, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, &SecurityAttributes,
         CREATE_NEW, CreateFlags | FileAttributes, 0);
     if (INVALID_HANDLE_VALUE == FileContext->Handle)
