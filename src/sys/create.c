@@ -35,6 +35,9 @@ FSP_IOCMPL_DISPATCH FspFsvolCreateComplete;
 static NTSTATUS FspFsvolCreateTryOpen(PIRP Irp, const FSP_FSCTL_TRANSACT_RSP *Response,
     FSP_FILE_NODE *FileNode, FSP_FILE_DESC *FileDesc, PFILE_OBJECT FileObject,
     BOOLEAN FlushImage);
+static NTSTATUS FspFsvolCreateCheckFileKind(
+    const FSP_FSVOL_DEVICE_EXTENSION *FsvolDeviceExtension,
+    ULONG CreateOptions, ULONG FileAttributes);
 static VOID FspFsvolCreatePostClose(FSP_FILE_DESC *FileDesc);
 static FSP_IOP_REQUEST_FINI FspFsvolCreateRequestFini;
 static FSP_IOP_REQUEST_FINI FspFsvolCreateTryOpenRequestFini;
@@ -58,6 +61,7 @@ FSP_DRIVER_DISPATCH FspCreate;
 #pragma alloc_text(PAGE, FspFsvolCreatePrepare)
 #pragma alloc_text(PAGE, FspFsvolCreateComplete)
 #pragma alloc_text(PAGE, FspFsvolCreateTryOpen)
+#pragma alloc_text(PAGE, FspFsvolCreateCheckFileKind)
 #pragma alloc_text(PAGE, FspFsvolCreatePostClose)
 #pragma alloc_text(PAGE, FspFsvolCreateRequestFini)
 #pragma alloc_text(PAGE, FspFsvolCreateTryOpenRequestFini)
@@ -1032,6 +1036,20 @@ NTSTATUS FspFsvolCreateComplete(
         FileDesc->UserContext2 = Response->Rsp.Create.Opened.UserContext2;
         FileDesc->DeleteOnClose = BooleanFlagOn(IrpSp->Parameters.Create.Options, FILE_DELETE_ON_CLOSE);
 
+        /*
+         * When GetSecurityByName is not implemented the user-mode access check cannot validate
+         * the directory/non-directory open options before Open. Validate them here with the
+         * attributes returned by Open so that a directory cannot be opened as a file.
+         */
+        Result = FspFsvolCreateCheckFileKind(FsvolDeviceExtension,
+            Request->Req.Create.CreateOptions,
+            Response->Rsp.Create.Opened.FileInfo.FileAttributes);
+        if (!NT_SUCCESS(Result))
+        {
+            FspFsvolCreatePostClose(FileDesc);
+            FSP_RETURN();
+        }
+
         /* handle normalized names */
         if (!FsvolDeviceExtension->VolumeParams.CaseSensitiveSearch)
         {
@@ -1434,6 +1452,27 @@ static NTSTATUS FspFsvolCreateTryOpen(PIRP Irp, const FSP_FSCTL_TRANSACT_RSP *Re
     FspIopRequestContext(Request, RequestFileDesc) = 0;
     Irp->IoStatus.Information = Response->IoStatus.Information;
     return Irp->IoStatus.Status; /* get success value from oplock processing */
+}
+
+static NTSTATUS FspFsvolCreateCheckFileKind(
+    const FSP_FSVOL_DEVICE_EXTENSION *FsvolDeviceExtension,
+    ULONG CreateOptions, ULONG FileAttributes)
+{
+    PAGED_CODE();
+
+    if (FlagOn(FileAttributes, FILE_ATTRIBUTE_REPARSE_POINT) &&
+        FsvolDeviceExtension->VolumeParams.UmNoReparsePointsDirCheck)
+        return STATUS_SUCCESS;
+
+    if (FlagOn(CreateOptions, FILE_DIRECTORY_FILE) &&
+        !FlagOn(FileAttributes, FILE_ATTRIBUTE_DIRECTORY))
+        return STATUS_NOT_A_DIRECTORY;
+
+    if (FlagOn(CreateOptions, FILE_NON_DIRECTORY_FILE) &&
+        FlagOn(FileAttributes, FILE_ATTRIBUTE_DIRECTORY))
+        return STATUS_FILE_IS_A_DIRECTORY;
+
+    return STATUS_SUCCESS;
 }
 
 static VOID FspFsvolCreatePostClose(FSP_FILE_DESC *FileDesc)
