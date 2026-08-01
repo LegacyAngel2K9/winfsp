@@ -43,6 +43,46 @@ static BOOLEAN finalpath_matches(PWSTR ExpectedName, PWSTR FinalPath)
         (0 != Suffix && 0 == wcscmp(Suffix, FinalPath));
 }
 
+typedef struct
+{
+    USHORT StructureVersion;
+    USHORT StructureSize;
+    ULONG Protocol;
+    USHORT ProtocolMajorVersion;
+    USHORT ProtocolMinorVersion;
+    USHORT ProtocolRevision;
+    USHORT Reserved;
+    ULONG Flags;
+    struct
+    {
+        ULONG Reserved[8];
+    } GenericReserved;
+    union
+    {
+        struct
+        {
+            ULONG Reserved[16];
+        } ProtocolSpecificReserved;
+        struct
+        {
+            struct
+            {
+                ULONG Capabilities;
+            } Server;
+            struct
+            {
+                ULONG Capabilities;
+                ULONG ShareFlags;
+                ULONG CachingFlags;
+                UCHAR ShareType;
+                UCHAR Reserved0[3];
+                ULONG Reserved1;
+            } Share;
+        } Smb2;
+        ULONG Reserved[16];
+    } ProtocolSpecific;
+} FSP_TEST_FILE_REMOTE_PROTOCOL_INFORMATION;
+
 void getfileattr_dotest(ULONG Flags, PWSTR Prefix, ULONG FileInfoTimeout)
 {
     void *memfs = memfs_start_ex(Flags, FileInfoTimeout);
@@ -2561,6 +2601,58 @@ void query_winfsp_test(void)
         query_winfsp_dotest(MemfsNet, L"\\\\memfs\\share", 0, TRUE);
 }
 
+void remote_protocol_dotest(ULONG Flags, PWSTR Prefix, BOOLEAN ExpectRemote)
+{
+    void *memfs = memfs_start_ex(Flags, 0);
+
+    WCHAR FilePath[MAX_PATH];
+    HANDLE Handle;
+    FSP_TEST_FILE_REMOTE_PROTOCOL_INFORMATION RemoteProtocolInfo;
+    BOOL Success;
+
+    StringCbPrintfW(FilePath, sizeof FilePath, L"%s%s\\",
+        Prefix ? L"" : L"\\\\?\\GLOBALROOT", Prefix ? Prefix : memfs_volumename(memfs));
+
+    Handle = CreateFileW(FilePath,
+        0, FILE_SHARE_READ | FILE_SHARE_WRITE, 0, OPEN_EXISTING,
+        FILE_FLAG_BACKUP_SEMANTICS, 0);
+    ASSERT(INVALID_HANDLE_VALUE != Handle);
+
+    memset(&RemoteProtocolInfo, 0, sizeof RemoteProtocolInfo);
+    Success = GetFileInformationByHandleEx(Handle, 13/*FileRemoteProtocolInfo*/,
+        &RemoteProtocolInfo, sizeof RemoteProtocolInfo);
+    if (ExpectRemote)
+    {
+        ASSERT(Success);
+        ASSERT(4 == RemoteProtocolInfo.StructureVersion);
+        ASSERT(sizeof RemoteProtocolInfo == RemoteProtocolInfo.StructureSize);
+        ASSERT(0x00020000 == RemoteProtocolInfo.Protocol);
+        ASSERT(3 == RemoteProtocolInfo.ProtocolMajorVersion);
+        ASSERT(0 == RemoteProtocolInfo.ProtocolMinorVersion);
+        ASSERT(0 != (RemoteProtocolInfo.Flags & 0x00000001));
+    }
+    else
+    {
+        ASSERT(!Success);
+        ASSERT(ERROR_INVALID_PARAMETER == GetLastError());
+    }
+
+    CloseHandle(Handle);
+
+    memfs_stop(memfs);
+}
+
+void remote_protocol_test(void)
+{
+    if (NtfsTests)
+        return;
+
+    if (WinFspDiskTests)
+        remote_protocol_dotest(MemfsDisk, 0, FALSE);
+    if (WinFspNetTests)
+        remote_protocol_dotest(MemfsNet, L"\\\\memfs\\share", TRUE);
+}
+
 void info_tests(void)
 {
     if (!OptFuseExternal && !OptShareName)
@@ -2594,4 +2686,6 @@ void info_tests(void)
     TEST(setvolinfo_test);
     if (!NtfsTests)
         TEST(query_winfsp_test);
+    if (!NtfsTests)
+        TEST(remote_protocol_test);
 }

@@ -21,6 +21,49 @@
 
 #include <sys/driver.h>
 
+#define FSP_WNNC_NET_SMB                0x00020000
+#define FSP_REMOTE_PROTOCOL_FLAG_LOOPBACK 0x00000001
+
+typedef struct
+{
+    USHORT StructureVersion;
+    USHORT StructureSize;
+    ULONG Protocol;
+    USHORT ProtocolMajorVersion;
+    USHORT ProtocolMinorVersion;
+    USHORT ProtocolRevision;
+    USHORT Reserved;
+    ULONG Flags;
+    struct
+    {
+        ULONG Reserved[8];
+    } GenericReserved;
+    union
+    {
+        struct
+        {
+            ULONG Reserved[16];
+        } ProtocolSpecificReserved;
+        struct
+        {
+            struct
+            {
+                ULONG Capabilities;
+            } Server;
+            struct
+            {
+                ULONG Capabilities;
+                ULONG ShareFlags;
+                ULONG CachingFlags;
+                UCHAR ShareType;
+                UCHAR Reserved0[3];
+                ULONG Reserved1;
+            } Share;
+        } Smb2;
+        ULONG Reserved[16];
+    } ProtocolSpecific;
+} FSP_FILE_REMOTE_PROTOCOL_INFORMATION;
+
 static NTSTATUS FspFsvolQueryAllInformation(PFILE_OBJECT FileObject,
     PVOID *PBuffer, PVOID BufferEnd,
     const FSP_FSCTL_FILE_INFO *FileInfo);
@@ -44,6 +87,8 @@ static NTSTATUS FspFsvolQueryNetworkOpenInformation(PFILE_OBJECT FileObject,
     const FSP_FSCTL_FILE_INFO *FileInfo);
 static NTSTATUS FspFsvolQueryPositionInformation(PFILE_OBJECT FileObject,
     PVOID *PBuffer, PVOID BufferEnd);
+static NTSTATUS FspFsvolQueryRemoteProtocolInformation(
+    PDEVICE_OBJECT FsvolDeviceObject, PVOID *PBuffer, PVOID BufferEnd);
 static NTSTATUS FspFsvolQueryStandardInformation(PFILE_OBJECT FileObject,
     PVOID *PBuffer, PVOID BufferEnd,
     const FSP_FSCTL_FILE_INFO *FileInfo);
@@ -117,6 +162,7 @@ FAST_IO_QUERY_OPEN FspFastIoQueryOpen;
 #pragma alloc_text(PAGE, FspFsvolQueryNameInformation)
 #pragma alloc_text(PAGE, FspFsvolQueryNetworkOpenInformation)
 #pragma alloc_text(PAGE, FspFsvolQueryPositionInformation)
+#pragma alloc_text(PAGE, FspFsvolQueryRemoteProtocolInformation)
 #pragma alloc_text(PAGE, FspFsvolQueryStandardInformation)
 #pragma alloc_text(PAGE, FspFsvolQueryStatBaseInformation)
 #pragma alloc_text(PAGE, FspFsvolQueryStatLxBaseInformation)
@@ -440,6 +486,33 @@ static NTSTATUS FspFsvolQueryPositionInformation(PFILE_OBJECT FileObject,
     Info->CurrentByteOffset = FileObject->CurrentByteOffset;
 
     FspFileNodeRelease(FileNode, Main);
+
+    *PBuffer = (PVOID)(Info + 1);
+
+    return STATUS_SUCCESS;
+}
+
+static NTSTATUS FspFsvolQueryRemoteProtocolInformation(
+    PDEVICE_OBJECT FsvolDeviceObject, PVOID *PBuffer, PVOID BufferEnd)
+{
+    PAGED_CODE();
+
+    FSP_FILE_REMOTE_PROTOCOL_INFORMATION *Info =
+        (FSP_FILE_REMOTE_PROTOCOL_INFORMATION *)*PBuffer;
+
+    if (FILE_DEVICE_NETWORK_FILE_SYSTEM != FsvolDeviceObject->DeviceType)
+        return STATUS_INVALID_PARAMETER;
+
+    if ((PVOID)(Info + 1) > BufferEnd)
+        return STATUS_BUFFER_TOO_SMALL;
+
+    RtlZeroMemory(Info, sizeof *Info);
+    Info->StructureVersion = 4;
+    Info->StructureSize = sizeof *Info;
+    Info->Protocol = FSP_WNNC_NET_SMB;
+    Info->ProtocolMajorVersion = 3;
+    Info->ProtocolMinorVersion = 0;
+    Info->Flags = FSP_REMOTE_PROTOCOL_FLAG_LOOPBACK;
 
     *PBuffer = (PVOID)(Info + 1);
 
@@ -1026,6 +1099,10 @@ static NTSTATUS FspFsvolQueryInformation(
         break;
     case FilePositionInformation:
         Result = FspFsvolQueryPositionInformation(FileObject, &Buffer, BufferEnd);
+        Irp->IoStatus.Information = (UINT_PTR)((PUINT8)Buffer - (PUINT8)Irp->AssociatedIrp.SystemBuffer);
+        return Result;
+    case FileRemoteProtocolInformation:
+        Result = FspFsvolQueryRemoteProtocolInformation(FsvolDeviceObject, &Buffer, BufferEnd);
         Irp->IoStatus.Information = (UINT_PTR)((PUINT8)Buffer - (PUINT8)Irp->AssociatedIrp.SystemBuffer);
         return Result;
     case FileStandardInformation:
