@@ -612,6 +612,14 @@ public:
     {
         _VolumeParams.PassQueryDirectoryPattern = !!PassQueryDirectoryPattern;
     }
+    BOOLEAN AlwaysUseDoubleBuffering()
+    {
+        return _VolumeParams.AlwaysUseDoubleBuffering;
+    }
+    VOID SetAlwaysUseDoubleBuffering(BOOLEAN AlwaysUseDoubleBuffering)
+    {
+        _VolumeParams.AlwaysUseDoubleBuffering = !!AlwaysUseDoubleBuffering;
+    }
     BOOLEAN FlushAndPurgeOnCleanup()
     {
         return _VolumeParams.FlushAndPurgeOnCleanup;

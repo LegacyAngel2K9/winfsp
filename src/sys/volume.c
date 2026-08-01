@@ -68,6 +68,7 @@ static NTSTATUS FspVolumeNotifyLock(
 static WORKER_THREAD_ROUTINE FspVolumeNotifyWork;
 NTSTATUS FspVolumeWork(
     PDEVICE_OBJECT FsvolDeviceObject, PIRP Irp, PIO_STACK_LOCATION IrpSp);
+static BOOLEAN FspVolumeHonorAlwaysUseDoubleBuffering(VOID);
 
 static inline UINT16 FspVolumeRoundReadAheadGranularity(UINT16 ReadAheadGranularity)
 {
@@ -82,6 +83,7 @@ static inline UINT16 FspVolumeRoundReadAheadGranularity(UINT16 ReadAheadGranular
 #ifdef ALLOC_PRAGMA
 #pragma alloc_text(PAGE, FspVolumeCreate)
 #pragma alloc_text(PAGE, FspVolumeCreateNoLock)
+#pragma alloc_text(PAGE, FspVolumeHonorAlwaysUseDoubleBuffering)
 // ! #pragma alloc_text(PAGE, FspVolumeDelete)
 // ! #pragma alloc_text(PAGE, FspVolumeDeleteNoLock)
 // ! #pragma alloc_text(PAGE, FspVolumeDeleteDelayed)
@@ -104,6 +106,29 @@ static inline UINT16 FspVolumeRoundReadAheadGranularity(UINT16 ReadAheadGranular
 
 #define PREFIXW                         L"" FSP_FSCTL_VOLUME_PARAMS_PREFIX
 #define PREFIXW_SIZE                    (sizeof PREFIXW - sizeof(WCHAR))
+
+static BOOLEAN FspVolumeHonorAlwaysUseDoubleBuffering(VOID)
+{
+    PAGED_CODE();
+
+    UNICODE_STRING RegPath;
+    UNICODE_STRING RegName;
+    union
+    {
+        KEY_VALUE_PARTIAL_INFORMATION V;
+        UINT8 B[FIELD_OFFSET(KEY_VALUE_PARTIAL_INFORMATION, Data) + sizeof(ULONG)];
+    } RegValue;
+    ULONG RegLength;
+    NTSTATUS Result;
+
+    RtlInitUnicodeString(&RegPath, L"" FSP_REGKEY);
+    RtlInitUnicodeString(&RegName, L"HonorAlwaysUseDoubleBuffering");
+
+    RegLength = sizeof RegValue;
+    Result = FspRegistryGetValue(&RegPath, &RegName, &RegValue.V, &RegLength);
+
+    return NT_SUCCESS(Result) && REG_DWORD == RegValue.V.Type && 0 != *(PULONG)&RegValue.V.Data;
+}
 
 NTSTATUS FspVolumeCreate(
     PDEVICE_OBJECT FsctlDeviceObject, PIRP Irp, PIO_STACK_LOCATION IrpSp)
@@ -305,12 +330,14 @@ static NTSTATUS FspVolumeCreateNoLock(
 
 #if !DBG
     /*
-     * In Release builds we hardcode AlwaysUseDoubleBuffering for Reads as we do not want someone
-     * to use WinFsp to crash Windows.
+     * In Release builds we hardcode AlwaysUseDoubleBuffering for Reads unless an Administrator
+     * enables HKLM\Software\WinFsp\HonorAlwaysUseDoubleBuffering. This keeps the default safe
+     * while allowing trusted deployments to opt into the file system's requested setting.
      *
      * See http://www.osronline.com/showthread.cfm?link=282037
      */
-    VolumeParams.AlwaysUseDoubleBuffering = 1;
+    if (!VolumeParams.AlwaysUseDoubleBuffering && !FspVolumeHonorAlwaysUseDoubleBuffering())
+        VolumeParams.AlwaysUseDoubleBuffering = 1;
 #endif
 
     /*

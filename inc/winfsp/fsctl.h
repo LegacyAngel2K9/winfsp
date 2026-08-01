@@ -218,7 +218,7 @@ enum
     /* kernel-mode flags */\
     UINT32 PostCleanupWhenModifiedOnly:1;   /* post Cleanup when a file was modified/deleted */\
     UINT32 PassQueryDirectoryPattern:1;     /* pass Pattern during QueryDirectory operations */\
-    UINT32 AlwaysUseDoubleBuffering:1;\
+    UINT32 AlwaysUseDoubleBuffering:1;  /* release builds honor this only with registry opt-in */\
     UINT32 PassQueryDirectoryFileName:1;    /* pass FileName during QueryDirectory (GetDirInfoByName) */\
     UINT32 FlushAndPurgeOnCleanup:1;        /* keeps file off "standby" list */\
     UINT32 DeviceControl:1;                 /* support user-mode ioctl handling */\

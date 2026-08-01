@@ -312,6 +312,17 @@ namespace Fsp
             get { return 0 != (_VolumeParams.Flags & VolumeParams.PassQueryDirectoryPattern); }
             set { _VolumeParams.Flags |= (value ? VolumeParams.PassQueryDirectoryPattern : 0); }
         }
+        public Boolean AlwaysUseDoubleBuffering
+        {
+            get { return 0 != (_VolumeParams.Flags & VolumeParams.AlwaysUseDoubleBuffering); }
+            set
+            {
+                if (value)
+                    _VolumeParams.Flags |= VolumeParams.AlwaysUseDoubleBuffering;
+                else
+                    _VolumeParams.Flags &= ~VolumeParams.AlwaysUseDoubleBuffering;
+            }
+        }
         public Boolean PassQueryDirectoryFileName
         {
             get { return 0 != (_VolumeParams.Flags & VolumeParams.PassQueryDirectoryFileName); }
