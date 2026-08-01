@@ -320,7 +320,7 @@ static NTSTATUS FspFsvolCreateNoLock(
     KPROCESSOR_MODE RequestorMode =
         FlagOn(Flags, SL_FORCE_ACCESS_CHECK) ? UserMode : Irp->RequestorMode;
     BOOLEAN CaseSensitive =
-        //BooleanFlagOn(Flags, SL_CASE_SENSITIVE) ||
+        BooleanFlagOn(Flags, SL_CASE_SENSITIVE) ||
         !!FsvolDeviceExtension->VolumeParams.CaseSensitiveSearch;
     BOOLEAN HasTraversePrivilege =
         BooleanFlagOn(AccessState->Flags, TOKEN_HAS_TRAVERSE_PRIVILEGE);
@@ -1053,7 +1053,7 @@ NTSTATUS FspFsvolCreateComplete(
         }
 
         /* handle normalized names */
-        if (!FsvolDeviceExtension->VolumeParams.CaseSensitiveSearch)
+        if (!CaseSensitive)
         {
             /* is there a normalized file name as part of the response? */
             if (0 == Response->Rsp.Create.Opened.FileName.Size)
