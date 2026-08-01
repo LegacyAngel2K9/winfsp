@@ -14,6 +14,11 @@ I cannot run a program located in a WinFsp drive as administrator. I cannot run 
     When running an executable as administrator, the Windows OS seems to require that the name of the file system that is housing the executable is "NTFS". For example, the MEMFS file system with the command line `memfs-x64.exe -i -F NTFS -m X:` works.
 
 
+The installer reports that a running WinFsp service is blocking setup, but I never installed WinFsp.::
+
+    Some third-party products bundle custom WinFsp builds and may leave a `WinFsp` service or registry entries behind. Run `sc.exe qc WinFsp` to identify the service binary path. If that is not enough, search `HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\SharedDLLs` for `winfsp` entries. Uninstall or stop the product that installed the custom WinFsp before retrying the official WinFsp installer.
+
+
 Disconnecting (unmapping) a network drive does not work.::
 
     You may have Dokany installed. Dokany installs its own Network Provider DLL that unfortunately interferes with the WinFsp handling of network drives. The solution is to change your system's Network Provider order and ensure that the WinFsp Network Provider runs before the Dokany one. Instructions on how to change the Network Provider order can be found in this https://www.interfacett.com/blogs/changing-the-network-provider-order-in-windows-10/[article].

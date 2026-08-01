@@ -25,6 +25,8 @@
 
 - [FIX] Add target container silo support for host-created file systems and `ntptfs -o TargetSiloId=GUID`. See GitHub issue #498.
 
+- [FIX] Improve installer diagnostics when a third-party or older `WinFsp` service blocks setup. See GitHub issue #499.
+
 
 ## v2.2B2 (2026 Beta2)
 
