@@ -137,6 +137,8 @@ struct fuse3_operations
     /* _ */ int (*flock)(const char *path, struct fuse3_file_info *, int op);
     /* _ */ int (*fallocate)(const char *path, int mode, fuse_off_t off, fuse_off_t len,
         struct fuse3_file_info *fi);
+    /* WinFsp */
+    /* S */ int (*chflags)(const char *path, uint32_t flags);
 };
 
 struct fuse3_context
