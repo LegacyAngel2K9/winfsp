@@ -433,12 +433,13 @@ static DWORD FspNpGetCredentials(
         CREDUI_FLAGS_ALWAYS_SHOW_UI |
         (0 != PrevNpResult ? CREDUI_FLAGS_INCORRECT_PASSWORD : 0) |
         (0 != PSave ? CREDUI_FLAGS_SHOW_SAVE_CHECK_BOX : 0) |
-        (FSP_NP_CREDENTIALS_PASSWORD == CredentialsKind ? 0/*CREDUI_FLAGS_KEEP_USERNAME*/ : 0));
+        (FSP_NP_CREDENTIALS_PASSWORD == CredentialsKind ? CREDUI_FLAGS_KEEP_USERNAME : 0));
 #else
     WCHAR Domain[CREDUI_MAX_DOMAIN_TARGET_LENGTH + 1];
     ULONG AuthPackage = 0 != AuthPackage0 ? AuthPackage0 - 1 : 0;
     PVOID InAuthBuf = 0, OutAuthBuf = 0;
     ULONG InAuthSize, OutAuthSize, DomainSize;
+    DWORD CredUiFlags;
 
     InAuthSize = 0;
     if (!CredPackAuthenticationBufferW(
@@ -463,10 +464,13 @@ static DWORD FspNpGetCredentials(
         goto exit;
     }
 
+    CredUiFlags = 0 != PSave ? CREDUIWIN_CHECKBOX : 0;
+    CredUiFlags |= FSP_NP_CREDENTIALS_PASSWORD == CredentialsKind ?
+        CREDUIWIN_IN_CRED_ONLY :
+        (0 != AuthPackage0 ? CREDUIWIN_AUTHPACKAGE_ONLY : CREDUIWIN_GENERIC);
+
     NpResult = CredUIPromptForWindowsCredentialsW(&UiInfo, PrevNpResult,
-        &AuthPackage, InAuthBuf, InAuthSize, &OutAuthBuf, &OutAuthSize, PSave,
-        (0 != AuthPackage0 ? CREDUIWIN_AUTHPACKAGE_ONLY : CREDUIWIN_GENERIC) |
-            (0 != PSave ? CREDUIWIN_CHECKBOX : 0));
+        &AuthPackage, InAuthBuf, InAuthSize, &OutAuthBuf, &OutAuthSize, PSave, CredUiFlags);
     if (ERROR_SUCCESS != NpResult)
         goto exit;
 
