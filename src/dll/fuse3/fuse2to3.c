@@ -509,20 +509,19 @@ static struct fuse3 *fsp_fuse3_new_common(struct fsp_fuse_env *env,
     const struct fuse3_operations *ops, size_t opsize, void *data,
     int help)
 {
-    /* preflight args */
     struct fsp_fuse_core_opt_data opt_data;
-    struct fuse_args pfargs;
-    memset(&opt_data, 0, sizeof opt_data);
-    if (-1 == fsp_fuse3_copy_args(env, args, &pfargs))
-        return 0;
-    int optres = fsp_fuse_core_opt_parse(env, &pfargs, &opt_data, /*help=*/1);
-    fsp_fuse_opt_free_args(env, &pfargs);
-    if (-1 == optres)
-        return 0;
-    if (opt_data.help)
-        return 0;
-
     struct fuse3 *f3 = 0;
+    struct fuse_args fargs;
+
+    memset(&opt_data, 0, sizeof opt_data);
+    memset(&fargs, 0, sizeof fargs);
+
+    if (-1 == fsp_fuse3_copy_args(env, args, &fargs))
+        goto fail;
+
+    int optres = fsp_fuse_core_opt_parse(env, args, &opt_data, help);
+    if (-1 == optres || opt_data.help)
+        goto fail;
 
     if (opsize > sizeof(struct fuse3_operations))
         opsize = sizeof(struct fuse3_operations);
@@ -531,14 +530,15 @@ static struct fuse3 *fsp_fuse3_new_common(struct fsp_fuse_env *env,
     if (0 == f3)
         goto fail;
 
-    if (-1 == fsp_fuse3_copy_args(env, args, &f3->args))
-        goto fail;
+    memcpy(&f3->args, &fargs, sizeof f3->args);
+    memset(&fargs, 0, sizeof fargs);
     memcpy(&f3->ops, ops, opsize);
     f3->data = data;
 
     return f3;
 
 fail:
+    fsp_fuse_opt_free_args(env, &fargs);
     if (0 != f3)
         fsp_fuse3_destroy(env, f3);
 
