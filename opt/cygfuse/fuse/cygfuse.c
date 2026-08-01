@@ -206,6 +206,7 @@ static void *cygfuse_init_winfsp()
     CYGFUSE_GET_API(h, fsp_fuse_loop_mt);
     CYGFUSE_GET_API(h, fsp_fuse_exit);
     CYGFUSE_GET_API(h, fsp_fuse_exited);
+    CYGFUSE_GET_API(h, fsp_fuse_notify);
     CYGFUSE_GET_API(h, fsp_fuse_get_context);
 
     /* fuse_opt.h */
