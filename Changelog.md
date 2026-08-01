@@ -47,6 +47,8 @@
 
 - [FIX] Keep auto-created directory mount points visible and writable until unmount, and remove them explicitly during unmount. See GitHub issue #551.
 
+- [FIX] Report physical UNC names for WinFsp network volumes to avoid Explorer srvsvc/IPC$ fallback delays at copy completion. See GitHub issue #554.
+
 
 ## v2.2B2 (2026 Beta2)
 

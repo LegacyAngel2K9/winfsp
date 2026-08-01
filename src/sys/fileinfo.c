@@ -64,6 +64,12 @@ typedef struct
     } ProtocolSpecific;
 } FSP_FILE_REMOTE_PROTOCOL_INFORMATION;
 
+typedef struct
+{
+    ULONG FileNameLength;
+    WCHAR FileName[1];
+} FSP_FILE_NETWORK_PHYSICAL_NAME_INFORMATION;
+
 static NTSTATUS FspFsvolQueryAllInformation(PFILE_OBJECT FileObject,
     PVOID *PBuffer, PVOID BufferEnd,
     const FSP_FSCTL_FILE_INFO *FileInfo);
@@ -81,6 +87,8 @@ static NTSTATUS FspFsvolQueryIdInformation(PFILE_OBJECT FileObject,
 static NTSTATUS FspFsvolQueryInternalInformation(PFILE_OBJECT FileObject,
     PVOID *PBuffer, PVOID BufferEnd);
 static NTSTATUS FspFsvolQueryNameInformation(PFILE_OBJECT FileObject,
+    PVOID *PBuffer, PVOID BufferEnd);
+static NTSTATUS FspFsvolQueryNetworkPhysicalNameInformation(PFILE_OBJECT FileObject,
     PVOID *PBuffer, PVOID BufferEnd);
 static NTSTATUS FspFsvolQueryNetworkOpenInformation(PFILE_OBJECT FileObject,
     PVOID *PBuffer, PVOID BufferEnd,
@@ -160,6 +168,7 @@ FAST_IO_QUERY_OPEN FspFastIoQueryOpen;
 #pragma alloc_text(PAGE, FspFsvolQueryIdInformation)
 #pragma alloc_text(PAGE, FspFsvolQueryInternalInformation)
 #pragma alloc_text(PAGE, FspFsvolQueryNameInformation)
+#pragma alloc_text(PAGE, FspFsvolQueryNetworkPhysicalNameInformation)
 #pragma alloc_text(PAGE, FspFsvolQueryNetworkOpenInformation)
 #pragma alloc_text(PAGE, FspFsvolQueryPositionInformation)
 #pragma alloc_text(PAGE, FspFsvolQueryRemoteProtocolInformation)
@@ -432,6 +441,72 @@ static NTSTATUS FspFsvolQueryNameInformation(PFILE_OBJECT FileObject,
     }
     RtlCopyMemory(Buffer, FileNode->FileName.Buffer, CopyLength);
     Buffer += CopyLength;
+
+    FspFileNodeRelease(FileNode, Main);
+
+    *PBuffer = Buffer;
+
+    return Result;
+}
+
+static NTSTATUS FspFsvolQueryNetworkPhysicalNameInformation(PFILE_OBJECT FileObject,
+    PVOID *PBuffer, PVOID BufferEnd)
+{
+    PAGED_CODE();
+
+    NTSTATUS Result = STATUS_SUCCESS;
+    FSP_FILE_NETWORK_PHYSICAL_NAME_INFORMATION *Info = *PBuffer;
+    PUINT8 Buffer = (PUINT8)Info->FileName;
+    ULONG CopyLength;
+    FSP_FILE_NODE *FileNode = FileObject->FsContext;
+    PDEVICE_OBJECT FsvolDeviceObject = FileNode->FsvolDeviceObject;
+    FSP_FSVOL_DEVICE_EXTENSION *FsvolDeviceExtension = FspFsvolDeviceExtension(FsvolDeviceObject);
+    static const WCHAR UncPrefix[] = L"\\";
+    BOOLEAN RootFileName;
+
+    if ((PVOID)((PUINT8)Info + FIELD_OFFSET(FSP_FILE_NETWORK_PHYSICAL_NAME_INFORMATION, FileName)) >
+        BufferEnd)
+        return STATUS_BUFFER_TOO_SMALL;
+
+    if (0 == FsvolDeviceExtension->VolumePrefix.Length)
+        return STATUS_INVALID_PARAMETER;
+
+    FspFileNodeAcquireShared(FileNode, Main);
+
+    RootFileName = sizeof(WCHAR) == FileNode->FileName.Length && L'\\' == FileNode->FileName.Buffer[0];
+    Info->FileNameLength = sizeof(WCHAR) +
+        FsvolDeviceExtension->VolumePrefix.Length +
+        (RootFileName ? 0 : FileNode->FileName.Length);
+
+    CopyLength = sizeof(WCHAR);
+    if (Buffer + CopyLength > (PUINT8)BufferEnd)
+    {
+        CopyLength = (ULONG)((PUINT8)BufferEnd - Buffer);
+        Result = STATUS_BUFFER_OVERFLOW;
+    }
+    RtlCopyMemory(Buffer, UncPrefix, CopyLength);
+    Buffer += CopyLength;
+
+    CopyLength = FsvolDeviceExtension->VolumePrefix.Length;
+    if (Buffer + CopyLength > (PUINT8)BufferEnd)
+    {
+        CopyLength = (ULONG)((PUINT8)BufferEnd - Buffer);
+        Result = STATUS_BUFFER_OVERFLOW;
+    }
+    RtlCopyMemory(Buffer, FsvolDeviceExtension->VolumePrefix.Buffer, CopyLength);
+    Buffer += CopyLength;
+
+    if (!RootFileName)
+    {
+        CopyLength = FileNode->FileName.Length;
+        if (Buffer + CopyLength > (PUINT8)BufferEnd)
+        {
+            CopyLength = (ULONG)((PUINT8)BufferEnd - Buffer);
+            Result = STATUS_BUFFER_OVERFLOW;
+        }
+        RtlCopyMemory(Buffer, FileNode->FileName.Buffer, CopyLength);
+        Buffer += CopyLength;
+    }
 
     FspFileNodeRelease(FileNode, Main);
 
@@ -1089,6 +1164,10 @@ static NTSTATUS FspFsvolQueryInformation(
     case FileNameInformation:
     case FileNormalizedNameInformation:
         Result = FspFsvolQueryNameInformation(FileObject, &Buffer, BufferEnd);
+        Irp->IoStatus.Information = (UINT_PTR)((PUINT8)Buffer - (PUINT8)Irp->AssociatedIrp.SystemBuffer);
+        return Result;
+    case 49/*FileNetworkPhysicalNameInformation*/:
+        Result = FspFsvolQueryNetworkPhysicalNameInformation(FileObject, &Buffer, BufferEnd);
         Irp->IoStatus.Information = (UINT_PTR)((PUINT8)Buffer - (PUINT8)Irp->AssociatedIrp.SystemBuffer);
         return Result;
     case FileAlternateNameInformation:

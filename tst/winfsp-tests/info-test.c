@@ -83,6 +83,12 @@ typedef struct
     } ProtocolSpecific;
 } FSP_TEST_FILE_REMOTE_PROTOCOL_INFORMATION;
 
+typedef struct
+{
+    ULONG FileNameLength;
+    WCHAR FileName[1];
+} FSP_TEST_FILE_NETWORK_PHYSICAL_NAME_INFORMATION;
+
 void getfileattr_dotest(ULONG Flags, PWSTR Prefix, ULONG FileInfoTimeout)
 {
     void *memfs = memfs_start_ex(Flags, FileInfoTimeout);
@@ -2653,6 +2659,79 @@ void remote_protocol_test(void)
         remote_protocol_dotest(MemfsNet, L"\\\\memfs\\share", TRUE);
 }
 
+void network_physical_name_dotest(ULONG Flags, PWSTR Prefix, BOOLEAN ExpectNetwork)
+{
+    void *memfs = memfs_start_ex(Flags, 0);
+
+    NTSYSCALLAPI NTSTATUS NTAPI
+    NtQueryInformationFile(
+        HANDLE FileHandle,
+        PIO_STATUS_BLOCK IoStatusBlock,
+        PVOID FileInformation,
+        ULONG Length,
+        FILE_INFORMATION_CLASS FileInformationClass);
+
+    WCHAR FilePath[MAX_PATH], ExpectedName[MAX_PATH];
+    HANDLE Handle;
+    IO_STATUS_BLOCK IoStatus;
+    NTSTATUS Result;
+    BOOL Success;
+    union
+    {
+        FSP_TEST_FILE_NETWORK_PHYSICAL_NAME_INFORMATION I;
+        UINT8 B[FIELD_OFFSET(FSP_TEST_FILE_NETWORK_PHYSICAL_NAME_INFORMATION, FileName) +
+            MAX_PATH * sizeof(WCHAR)];
+    } NetworkPhysicalNameInfo;
+
+    StringCbPrintfW(FilePath, sizeof FilePath, L"%s%s\\file0",
+        Prefix ? L"" : L"\\\\?\\GLOBALROOT", Prefix ? Prefix : memfs_volumename(memfs));
+
+    Handle = CreateFileW(FilePath,
+        GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, 0,
+        CREATE_NEW, FILE_ATTRIBUTE_NORMAL | FILE_FLAG_DELETE_ON_CLOSE, 0);
+    ASSERT(INVALID_HANDLE_VALUE != Handle);
+
+    memset(&NetworkPhysicalNameInfo, 0, sizeof NetworkPhysicalNameInfo);
+    Result = NtQueryInformationFile(Handle, &IoStatus,
+        &NetworkPhysicalNameInfo, FIELD_OFFSET(FSP_TEST_FILE_NETWORK_PHYSICAL_NAME_INFORMATION, FileName),
+        (FILE_INFORMATION_CLASS)49/*FileNetworkPhysicalNameInformation*/);
+    if (ExpectNetwork)
+    {
+        StringCbPrintfW(ExpectedName, sizeof ExpectedName, L"%s\\file0", Prefix);
+
+        ASSERT(STATUS_BUFFER_OVERFLOW == Result);
+        ASSERT(NetworkPhysicalNameInfo.I.FileNameLength == wcslen(ExpectedName) * sizeof(WCHAR));
+
+        memset(&NetworkPhysicalNameInfo, 0, sizeof NetworkPhysicalNameInfo);
+        Result = NtQueryInformationFile(Handle, &IoStatus,
+            &NetworkPhysicalNameInfo, sizeof NetworkPhysicalNameInfo,
+            (FILE_INFORMATION_CLASS)49/*FileNetworkPhysicalNameInformation*/);
+        ASSERT(STATUS_SUCCESS == Result);
+        ASSERT(NetworkPhysicalNameInfo.I.FileNameLength == wcslen(ExpectedName) * sizeof(WCHAR));
+        ASSERT(0 == mywcscmp(ExpectedName, -1,
+            NetworkPhysicalNameInfo.I.FileName,
+            NetworkPhysicalNameInfo.I.FileNameLength / sizeof(WCHAR)));
+    }
+    else
+        ASSERT(STATUS_INVALID_PARAMETER == Result);
+
+    Success = CloseHandle(Handle);
+    ASSERT(Success);
+
+    memfs_stop(memfs);
+}
+
+void network_physical_name_test(void)
+{
+    if (NtfsTests)
+        return;
+
+    if (WinFspDiskTests)
+        network_physical_name_dotest(MemfsDisk, 0, FALSE);
+    if (WinFspNetTests)
+        network_physical_name_dotest(MemfsNet, L"\\\\memfs\\share", TRUE);
+}
+
 void info_tests(void)
 {
     if (!OptFuseExternal && !OptShareName)
@@ -2688,4 +2767,6 @@ void info_tests(void)
         TEST(query_winfsp_test);
     if (!NtfsTests)
         TEST(remote_protocol_test);
+    if (!NtfsTests)
+        TEST(network_physical_name_test);
 }
