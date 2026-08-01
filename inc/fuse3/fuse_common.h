@@ -66,6 +66,9 @@ extern "C" {
 #define FUSE_CAP_VOL_RENAME             (1 << 30)   /* reserved (OSXFUSE) */
 #define FUSE_CAP_XTIMES                 (1 << 31)   /* reserved (OSXFUSE) */
 
+#define FSP_FUSE_CAP_READ_ONLY          (1 << 22)   /* file system is marked read-only */
+#define FSP_FUSE_CAP_STAT_EX            (1 << 23)   /* file system supports fuse_stat_ex */
+#define FSP_FUSE_CAP_DELETE_ACCESS      (1 << 24)   /* file system supports access with DELETE_OK */
 #define FSP_FUSE_CAP_CASE_INSENSITIVE   FUSE_CAP_CASE_INSENSITIVE
 
 #define FUSE_IOCTL_COMPAT               (1 << 0)
