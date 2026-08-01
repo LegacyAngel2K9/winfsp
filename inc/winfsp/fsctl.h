@@ -212,7 +212,7 @@ enum
     UINT32 ReparsePoints:1;             /* file system supports reparse points */\
     UINT32 ReparsePointsAccessCheck:1;  /* file system performs reparse point access checks */\
     UINT32 NamedStreams:1;              /* file system supports named streams */\
-    UINT32 HardLinks:1;                 /* unimplemented; set to 0 */\
+    UINT32 HardLinks:1;                 /* file system supports hard links */\
     UINT32 ExtendedAttributes:1;        /* file system supports extended attributes */\
     UINT32 ReadOnlyVolume:1;\
     /* kernel-mode flags */\
@@ -457,6 +457,12 @@ typedef struct
                     FSP_FSCTL_TRANSACT_BUF NewFileName;
                     UINT64 AccessToken; /* request access token (PID,HANDLE) */
                 } Rename;
+                struct
+                {
+                    FSP_FSCTL_TRANSACT_BUF NewFileName;
+                    UINT64 AccessToken; /* request access token (PID,HANDLE) */
+                    UINT32 ReplaceIfExists:1;
+                } Link;
                 struct
                 {
                     FSP_FSCTL_TRANSACT_BUF NewFileName;

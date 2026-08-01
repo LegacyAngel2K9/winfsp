@@ -629,6 +629,14 @@ namespace Fsp.Interop
                 [MarshalAs(UnmanagedType.LPWStr)] String NewFileName,
                 [MarshalAs(UnmanagedType.U1)] Boolean ReplaceIfExists);
             [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+            internal delegate Int32 Link(
+                IntPtr FileSystem,
+                ref FullContext FullContext,
+                [MarshalAs(UnmanagedType.LPWStr)] String FileName,
+                [MarshalAs(UnmanagedType.LPWStr)] String NewFileName,
+                [MarshalAs(UnmanagedType.U1)] Boolean ReplaceIfExists,
+                out FileInfo FileInfo);
+            [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
             internal delegate Int32 GetSecurity(
                 IntPtr FileSystem,
                 ref FullContext FullContext,
@@ -770,6 +778,7 @@ namespace Fsp.Interop
         internal Proto.SetFileSize SetFileSize;
         internal Proto.CanDelete CanDelete;
         internal Proto.Rename Rename;
+        internal Proto.Link Link;
         internal Proto.GetSecurity GetSecurity;
         internal Proto.SetSecurity SetSecurity;
         internal Proto.ReadDirectory ReadDirectory;
@@ -787,7 +796,7 @@ namespace Fsp.Interop
         internal Proto.SetEa SetEa;
         internal Proto.Obsolete0 Obsolete0;
         internal Proto.DispatcherStopped DispatcherStopped;
-        /* NTSTATUS (*Reserved[33])(); */
+        /* NTSTATUS (*Reserved[32])(); */
     }
 
     [SuppressUnmanagedCodeSecurity]

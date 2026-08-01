@@ -1900,6 +1900,8 @@ ULONG FspFileNodeDirInfoChangeNumber(FSP_FILE_NODE *FileNode)
     return FileNode->DirInfoChangeNumber;
 }
 VOID FspFileNodeInvalidateParentDirInfo(FSP_FILE_NODE *FileNode);
+VOID FspFileNodeInvalidateDirInfoByName(PDEVICE_OBJECT FsvolDeviceObject,
+    PUNICODE_STRING FileName);
 BOOLEAN FspFileNodeReferenceStreamInfo(FSP_FILE_NODE *FileNode, PCVOID *PBuffer, PULONG PSize);
 VOID FspFileNodeSetStreamInfo(FSP_FILE_NODE *FileNode, PCVOID Buffer, ULONG Size);
 BOOLEAN FspFileNodeTrySetStreamInfo(FSP_FILE_NODE *FileNode, PCVOID Buffer, ULONG Size,

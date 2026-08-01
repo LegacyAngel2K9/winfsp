@@ -42,6 +42,7 @@ VOID fsp_fuse_op_enter_lock(FSP_FILE_SYSTEM *FileSystem,
                 Request->Req.Cleanup.Delete) ||
             (FspFsctlTransactSetInformationKind == Request->Kind &&
                 (10/*FileRenameInformation*/ == Request->Req.SetInformation.FileInformationClass ||
+                11/*FileLinkInformation*/ == Request->Req.SetInformation.FileInformationClass ||
                 65/*FileRenameInformationEx*/ == Request->Req.SetInformation.FileInformationClass)) ||
             FspFsctlTransactSetVolumeInformationKind == Request->Kind ||
             (FspFsctlTransactFlushBuffersKind == Request->Kind &&
@@ -88,6 +89,7 @@ VOID fsp_fuse_op_leave_unlock(FSP_FILE_SYSTEM *FileSystem,
                 Request->Req.Cleanup.Delete) ||
             (FspFsctlTransactSetInformationKind == Request->Kind &&
                 (10/*FileRenameInformation*/ == Request->Req.SetInformation.FileInformationClass ||
+                11/*FileLinkInformation*/ == Request->Req.SetInformation.FileInformationClass ||
                 65/*FileRenameInformationEx*/ == Request->Req.SetInformation.FileInformationClass)) ||
             FspFsctlTransactSetVolumeInformationKind == Request->Kind ||
             (FspFsctlTransactFlushBuffersKind == Request->Kind &&
@@ -147,6 +149,12 @@ NTSTATUS fsp_fuse_op_enter(FSP_FILE_SYSTEM *FileSystem,
     {
         FileName = (PWSTR)(Request->Buffer + Request->Req.SetInformation.Info.Rename.NewFileName.Offset);
         AccessToken = Request->Req.SetInformation.Info.Rename.AccessToken;
+    }
+    else if (FspFsctlTransactSetInformationKind == Request->Kind &&
+        11/*FileLinkInformation*/ == Request->Req.SetInformation.FileInformationClass)
+    {
+        FileName = (PWSTR)(Request->Buffer + Request->Req.SetInformation.Info.Link.NewFileName.Offset);
+        AccessToken = Request->Req.SetInformation.Info.Link.AccessToken;
     }
 
     if (0 != FileName)
@@ -1925,6 +1933,48 @@ static NTSTATUS fsp_fuse_intf_Rename(FSP_FILE_SYSTEM *FileSystem,
     return fsp_fuse_ntstatus_from_errno(f->env, err);
 }
 
+static NTSTATUS fsp_fuse_intf_Link(FSP_FILE_SYSTEM *FileSystem,
+    PVOID FileDesc,
+    PWSTR FileName, PWSTR NewFileName, BOOLEAN ReplaceIfExists,
+    FSP_FSCTL_FILE_INFO *FileInfo)
+{
+    struct fuse *f = FileSystem->UserContext;
+    struct fuse_context *context = fsp_fuse_get_context(f->env);
+    struct fsp_fuse_context_header *contexthdr = FSP_FUSE_HDR_FROM_CONTEXT(context);
+    UINT32 Uid, Gid, Mode;
+    FSP_FSCTL_FILE_INFO FileInfoBuf;
+    struct fsp_fuse_file_desc *filedesc = FileDesc;
+    int err;
+    NTSTATUS Result;
+
+    (void)FileName;
+    (void)NewFileName;
+    (void)ReplaceIfExists;
+
+    if (0 == f->ops.link)
+        return STATUS_INVALID_DEVICE_REQUEST;
+    if (filedesc->IsDirectory)
+        return STATUS_FILE_IS_A_DIRECTORY;
+
+    Result = fsp_fuse_intf_GetFileInfoEx(FileSystem, contexthdr->PosixPath, 0,
+        &Uid, &Gid, &Mode, &FileInfoBuf);
+    if (!NT_SUCCESS(Result) &&
+        STATUS_OBJECT_NAME_NOT_FOUND != Result &&
+        STATUS_OBJECT_PATH_NOT_FOUND != Result)
+        return Result;
+
+    if (NT_SUCCESS(Result))
+        return STATUS_OBJECT_NAME_COLLISION;
+
+    err = f->ops.link(filedesc->PosixPath, contexthdr->PosixPath);
+    Result = fsp_fuse_ntstatus_from_errno(f->env, err);
+    if (!NT_SUCCESS(Result))
+        return Result;
+
+    return fsp_fuse_intf_GetFileInfoEx(FileSystem, filedesc->PosixPath, 0,
+        &Uid, &Gid, &Mode, FileInfo);
+}
+
 static NTSTATUS fsp_fuse_intf_GetSecurity(FSP_FILE_SYSTEM *FileSystem,
     PVOID FileDesc,
     PSECURITY_DESCRIPTOR SecurityDescriptorBuf, SIZE_T *PSecurityDescriptorSize)
@@ -2787,6 +2837,7 @@ FSP_FILE_SYSTEM_INTERFACE fsp_fuse_intf =
     fsp_fuse_intf_SetFileSize,
     fsp_fuse_intf_CanDelete,
     fsp_fuse_intf_Rename,
+    fsp_fuse_intf_Link,
     fsp_fuse_intf_GetSecurity,
     fsp_fuse_intf_SetSecurity,
     fsp_fuse_intf_ReadDirectory,

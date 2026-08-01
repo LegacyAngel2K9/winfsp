@@ -883,6 +883,9 @@ FSP_FUSE_API struct fuse *fsp_fuse_new(struct fsp_fuse_env *env,
         opt_data.VolumeParams.FlushAndPurgeOnCleanup = FALSE;
     if (opt_data.set_LegacyUnlinkRename)
         opt_data.VolumeParams.SupportsPosixUnlinkRename = FALSE;
+    if (FIELD_OFFSET(struct fuse_operations, link) + sizeof ops->link <= opsize &&
+        0 != ops->link)
+        opt_data.VolumeParams.HardLinks = TRUE;
     opt_data.VolumeParams.CaseSensitiveSearch = TRUE;
     opt_data.VolumeParams.CasePreservedNames = TRUE;
     opt_data.VolumeParams.PersistentAcls = TRUE;

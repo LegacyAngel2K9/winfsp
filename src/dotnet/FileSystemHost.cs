@@ -281,6 +281,14 @@ namespace Fsp
             set { _VolumeParams.Flags |= (value ? VolumeParams.NamedStreams : 0); }
         }
         /// <summary>
+        /// Gets or sets a value that determines whether the file system supports hard links.
+        /// </summary>
+        public Boolean SupportsHardLinks
+        {
+            get { return 0 != (_VolumeParams.Flags & VolumeParams.HardLinks); }
+            set { _VolumeParams.Flags |= (value ? VolumeParams.HardLinks : 0); }
+        }
+        /// <summary>
         /// Gets or sets a value that determines whether the file system supports extended attributes.
         /// </summary>
         public Boolean ExtendedAttributes
@@ -1135,6 +1143,33 @@ namespace Fsp
                 return ExceptionHandler(FileSystem, ex);
             }
         }
+        private static Int32 Link(
+            IntPtr FileSystemPtr,
+            ref FullContext FullContext,
+            String FileName,
+            String NewFileName,
+            Boolean ReplaceIfExists,
+            out FileInfo FileInfo)
+        {
+            FileSystemBase FileSystem = (FileSystemBase)Api.GetUserContext(FileSystemPtr);
+            try
+            {
+                Object FileNode, FileDesc;
+                Api.GetFullContext(ref FullContext, out FileNode, out FileDesc);
+                return FileSystem.Link(
+                    FileNode,
+                    FileDesc,
+                    FileName,
+                    NewFileName,
+                    ReplaceIfExists,
+                    out FileInfo);
+            }
+            catch (Exception ex)
+            {
+                FileInfo = default(FileInfo);
+                return ExceptionHandler(FileSystem, ex);
+            }
+        }
         private static Int32 GetSecurity(
             IntPtr FileSystemPtr,
             ref FullContext FullContext,
@@ -1512,6 +1547,7 @@ namespace Fsp
             _FileSystemInterface.SetBasicInfo = SetBasicInfo;
             _FileSystemInterface.SetFileSize = SetFileSize;
             _FileSystemInterface.Rename = Rename;
+            _FileSystemInterface.Link = Link;
             _FileSystemInterface.GetSecurity = GetSecurity;
             _FileSystemInterface.SetSecurity = SetSecurity;
             _FileSystemInterface.ReadDirectory = ReadDirectory;

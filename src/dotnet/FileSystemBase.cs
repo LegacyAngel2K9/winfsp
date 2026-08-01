@@ -672,6 +672,39 @@ namespace Fsp
             return STATUS_INVALID_DEVICE_REQUEST;
         }
         /// <summary>
+        /// Creates a hard link to a file.
+        /// </summary>
+        /// <param name="FileNode">
+        /// The file node of the file to link.
+        /// </param>
+        /// <param name="FileDesc">
+        /// The file descriptor of the file to link.
+        /// </param>
+        /// <param name="FileName">
+        /// The current name of the file to link.
+        /// </param>
+        /// <param name="NewFileName">
+        /// The name for the new hard link.
+        /// </param>
+        /// <param name="ReplaceIfExists">
+        /// Whether to replace a file that already exists at NewFileName.
+        /// </param>
+        /// <param name="FileInfo">
+        /// Receives the updated file information.
+        /// </param>
+        /// <returns>STATUS_SUCCESS or error code.</returns>
+        public virtual Int32 Link(
+            Object FileNode,
+            Object FileDesc,
+            String FileName,
+            String NewFileName,
+            Boolean ReplaceIfExists,
+            out FileInfo FileInfo)
+        {
+            FileInfo = default(FileInfo);
+            return STATUS_INVALID_DEVICE_REQUEST;
+        }
+        /// <summary>
         /// Gets file or directory security descriptor.
         /// </summary>
         /// <param name="FileNode">
@@ -1241,7 +1274,7 @@ namespace Fsp
         /// Gets the originating process ID.
         /// </summary>
         /// <remarks>
-        /// Valid only during Create, Open and Rename requests when the target exists.
+        /// Valid only during Create, Open, Rename and Link requests when the target exists.
         /// </remarks>
         public static int GetOperationProcessId()
         {

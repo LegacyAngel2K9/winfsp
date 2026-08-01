@@ -131,7 +131,7 @@ typedef NTSTATUS FSP_FILE_SYSTEM_OPERATION(FSP_FILE_SYSTEM *,
  * follows:
  * <ul>
  * <li>EXCL: SetVolumeLabel, Flush(Volume),
- * Create, Cleanup(Delete), SetInformation(Rename)</li>
+ * Create, Cleanup(Delete), SetInformation(Rename,Link)</li>
  * <li>SHRD: GetVolumeInfo, Open, SetInformation(Disposition), ReadDirectory</li>
  * <li>NONE: all other operations</li>
  * </ul>
@@ -633,6 +633,29 @@ typedef struct _FSP_FILE_SYSTEM_INTERFACE
         PVOID FileContext,
         PWSTR FileName, PWSTR NewFileName, BOOLEAN ReplaceIfExists);
     /**
+     * Creates a hard link to a file.
+     *
+     * @param FileSystem
+     *     The file system on which this request is posted.
+     * @param FileContext
+     *     The file context of the file to link.
+     * @param FileName
+     *     The current name of the file to link.
+     * @param NewFileName
+     *     The name for the new hard link.
+     * @param ReplaceIfExists
+     *     Whether to replace a file that already exists at NewFileName.
+     * @param FileInfo [out]
+     *     Pointer to a structure that will receive the linked file information on successful
+     *     return from this call. This information includes file attributes, file times, etc.
+     * @return
+     *     STATUS_SUCCESS or error code.
+     */
+    NTSTATUS (*Link)(FSP_FILE_SYSTEM *FileSystem,
+        PVOID FileContext,
+        PWSTR FileName, PWSTR NewFileName, BOOLEAN ReplaceIfExists,
+        FSP_FSCTL_FILE_INFO *FileInfo);
+    /**
      * Get file or directory security descriptor.
      *
      * @param FileSystem
@@ -1089,7 +1112,7 @@ typedef struct _FSP_FILE_SYSTEM_INTERFACE
      * This ensures that this interface will always contain 64 function pointers.
      * Please update when changing the interface as it is important for future compatibility.
      */
-    NTSTATUS (*Reserved[31])();
+    NTSTATUS (*Reserved[30])();
 } FSP_FILE_SYSTEM_INTERFACE;
 FSP_FSCTL_STATIC_ASSERT(sizeof(FSP_FILE_SYSTEM_INTERFACE) == 64 * sizeof(NTSTATUS (*)()),
     "FSP_FILE_SYSTEM_INTERFACE must have 64 entries.");
@@ -1421,7 +1444,7 @@ FSP_API BOOLEAN FspFileSystemIsOperationCaseSensitiveF(VOID);
 /**
  * Gets the originating process ID.
  *
- * Valid only during Create, Open and Rename requests when the target exists.
+ * Valid only during Create, Open, Rename and Link requests when the target exists.
  */
 static inline
 UINT32 FspFileSystemOperationProcessId(VOID)
@@ -1435,6 +1458,8 @@ UINT32 FspFileSystemOperationProcessId(VOID)
         if (10/*FileRenameInformation*/ == Request->Req.SetInformation.FileInformationClass ||
             65/*FileRenameInformationEx*/ == Request->Req.SetInformation.FileInformationClass)
             return FSP_FSCTL_TRANSACT_REQ_TOKEN_PID(Request->Req.SetInformation.Info.Rename.AccessToken);
+        if (11/*FileLinkInformation*/ == Request->Req.SetInformation.FileInformationClass)
+            return FSP_FSCTL_TRANSACT_REQ_TOKEN_PID(Request->Req.SetInformation.Info.Link.AccessToken);
         /* fall through! */
     default:
         return 0;
@@ -1444,7 +1469,7 @@ FSP_API UINT32 FspFileSystemOperationProcessIdF(VOID);
 /**
  * Gets the originating access token.
  *
- * Valid only during Create, Open and Rename requests when the target exists.
+ * Valid only during Create, Open, Rename and Link requests when the target exists.
  * The returned handle is owned by WinFsp and is valid only during the current
  * operation callback. Duplicate the handle if it must outlive the callback.
  */
@@ -1460,6 +1485,8 @@ HANDLE FspFileSystemOperationAccessToken(VOID)
         if (10/*FileRenameInformation*/ == Request->Req.SetInformation.FileInformationClass ||
             65/*FileRenameInformationEx*/ == Request->Req.SetInformation.FileInformationClass)
             return FSP_FSCTL_TRANSACT_REQ_TOKEN_HANDLE(Request->Req.SetInformation.Info.Rename.AccessToken);
+        if (11/*FileLinkInformation*/ == Request->Req.SetInformation.FileInformationClass)
+            return FSP_FSCTL_TRANSACT_REQ_TOKEN_HANDLE(Request->Req.SetInformation.Info.Link.AccessToken);
         /* fall through! */
     default:
         return 0;
