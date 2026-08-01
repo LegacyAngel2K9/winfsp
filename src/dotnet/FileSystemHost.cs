@@ -272,6 +272,15 @@ namespace Fsp
             get { return 0 != (_VolumeParams.Flags & VolumeParams.ExtendedAttributes); }
             set { _VolumeParams.Flags |= (value ? VolumeParams.ExtendedAttributes : 0); }
         }
+        /// <summary>
+        /// Gets or sets a value that determines whether the file system preserves case in
+        /// extended attribute names.
+        /// </summary>
+        public Boolean CasePreservedExtendedAttributes
+        {
+            get { return 0 != (_VolumeParams.Flags & VolumeParams.CasePreservedExtendedAttributes); }
+            set { _VolumeParams.Flags |= (value ? VolumeParams.CasePreservedExtendedAttributes : 0); }
+        }
         public Boolean PostCleanupWhenModifiedOnly
         {
             get { return 0 != (_VolumeParams.Flags & VolumeParams.PostCleanupWhenModifiedOnly); }

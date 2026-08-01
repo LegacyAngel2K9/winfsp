@@ -285,6 +285,7 @@ namespace memfs
             Host.PostDispositionWhenNecessaryOnly = true;
             Host.PassQueryDirectoryFileName = true;
             Host.ExtendedAttributes = true;
+            Host.CasePreservedExtendedAttributes = true;
             Host.WslFeatures = true;
             Host.RejectIrpPriorToTransact0 = true;
             Host.SupportsPosixUnlinkRename = true;
