@@ -87,7 +87,7 @@ DWORD APIENTRY NPGetCaps(DWORD Index)
          * WNNC_DLG_PROPERTYDIALOG
          * WNNC_DLG_SEARCHDIALOG
          */
-        return 0;
+        return WNNC_DLG_GETRESOURCEINFORMATION;
     case WNNC_ENUMERATION:
         /*
          * WNNC_ENUM_GLOBAL
@@ -225,6 +225,28 @@ static NTSTATUS FspNpGetVolumeList(
         if (STATUS_BUFFER_TOO_SMALL != Result)
             return Result;
     }
+}
+
+static BOOLEAN FspNpGetVolumePrefix(PWSTR VolumeName, PWSTR VolumeNameEnd, PWSTR *PVolumePrefix)
+{
+    ULONG Backslashes;
+    PWSTR P;
+
+    /*
+     * The VolumeName has the syntax:
+     *     \Device\Volume{GUID}\Server\Share
+     *
+     * Return the \Server\Share part.
+     */
+    for (Backslashes = 0, P = VolumeName; VolumeNameEnd > P; P++)
+        if (L'\\' == *P)
+            if (3 == ++Backslashes)
+            {
+                *PVolumePrefix = P;
+                return TRUE;
+            }
+
+    return FALSE;
 }
 
 static BOOLEAN FspNpGetVolumeNameForDrive(WCHAR Drive, PWSTR VolumeNameBuf, DWORD VolumeNameBufSize)
@@ -1063,6 +1085,118 @@ exit:
     return NpResult;
 }
 
+DWORD APIENTRY NPGetResourceInformation(
+    LPNETRESOURCEW lpNetResource,
+    LPVOID lpBuffer,
+    LPDWORD lpBufferSize,
+    LPWSTR *lplpSystem)
+{
+    PWSTR RemoteName, VolumeListBuf = 0, VolumeListBufEnd, VolumeName, VolumePrefix, P;
+    PWSTR MatchVolumePrefix = 0, MatchRemainPath = 0, RemainPath;
+    SIZE_T VolumeListSize;
+    DWORD NpResult, RequiredBufferSize;
+    ULONG RemoteNameInputLength, VolumePrefixLength, MatchVolumePrefixLength = 0;
+    ULONG RemoteNameLength, ProviderNameLength, RemainPathLength;
+    NTSTATUS Result;
+
+    if (0 == lpNetResource || 0 == lpBufferSize || 0 == lplpSystem)
+        return WN_BAD_VALUE;
+
+    if (0 != lpNetResource->dwType && RESOURCETYPE_DISK != lpNetResource->dwType)
+        return WN_BAD_DEV_TYPE;
+
+    RemoteName = lpNetResource->lpRemoteName;
+    if (0 == RemoteName || L'\\' != RemoteName[0] || L'\\' != RemoteName[1])
+        return WN_BAD_NETNAME;
+
+    RemoteNameInputLength = lstrlenW(RemoteName);
+    *lplpSystem = 0;
+
+    Result = FspNpGetVolumeList(&VolumeListBuf, &VolumeListSize);
+    if (!NT_SUCCESS(Result))
+        return WN_NO_NETWORK;
+
+    VolumeListBufEnd = (PVOID)((PUINT8)VolumeListBuf + VolumeListSize);
+    for (VolumeName = VolumeListBuf, P = VolumeName; VolumeListBufEnd > P; P++)
+        if (L'\0' == *P)
+        {
+            if (FspNpGetVolumePrefix(VolumeName, P, &VolumePrefix))
+            {
+                VolumePrefixLength = lstrlenW(VolumePrefix);
+                if (1 + VolumePrefixLength <= RemoteNameInputLength &&
+                    MatchVolumePrefixLength < VolumePrefixLength &&
+                    0 == invariant_wcsnicmp(RemoteName + 1, VolumePrefix, VolumePrefixLength))
+                {
+                    RemainPath = RemoteName + 1 + VolumePrefixLength;
+                    if (L'\0' == *RemainPath || L'\\' == *RemainPath)
+                    {
+                        MatchVolumePrefix = VolumePrefix;
+                        MatchVolumePrefixLength = VolumePrefixLength;
+                        MatchRemainPath = RemainPath;
+                    }
+                }
+            }
+
+            VolumeName = P + 1;
+        }
+
+    if (0 == MatchVolumePrefix)
+    {
+        NpResult = WN_BAD_NETNAME;
+        goto exit;
+    }
+
+    RemoteNameLength = 1 + MatchVolumePrefixLength;
+    ProviderNameLength = lstrlenW(L"" FSP_NP_NAME);
+    RemainPathLength = 0 != MatchRemainPath && L'\0' != *MatchRemainPath ? lstrlenW(MatchRemainPath) : 0;
+    RequiredBufferSize = sizeof(NETRESOURCEW) +
+        (RemoteNameLength + 1 + ProviderNameLength + 1 +
+            (0 != RemainPathLength ? RemainPathLength + 1 : 0)) * sizeof(WCHAR);
+
+    if (RequiredBufferSize > *lpBufferSize)
+    {
+        *lpBufferSize = RequiredBufferSize;
+        NpResult = WN_MORE_DATA;
+        goto exit;
+    }
+
+    if (0 == lpBuffer)
+    {
+        NpResult = WN_BAD_VALUE;
+        goto exit;
+    }
+
+    LPNETRESOURCEW Resource = lpBuffer;
+    PWSTR Strings = (PVOID)(Resource + 1);
+    memset(Resource, 0, sizeof *Resource);
+
+    Resource->dwScope = RESOURCE_GLOBALNET;
+    Resource->dwType = RESOURCETYPE_DISK;
+    Resource->dwDisplayType = RESOURCEDISPLAYTYPE_SHARE;
+    Resource->dwUsage = RESOURCEUSAGE_CONNECTABLE;
+    Resource->lpRemoteName = Strings;
+    *Strings++ = L'\\';
+    memcpy(Strings, MatchVolumePrefix, MatchVolumePrefixLength * sizeof(WCHAR));
+    Strings += MatchVolumePrefixLength;
+    *Strings++ = L'\0';
+    Resource->lpProvider = Strings;
+    memcpy(Strings, L"" FSP_NP_NAME, (ProviderNameLength + 1) * sizeof(WCHAR));
+    Strings += ProviderNameLength + 1;
+    if (0 != RemainPathLength)
+    {
+        *lplpSystem = Strings;
+        memcpy(Strings, MatchRemainPath, (RemainPathLength + 1) * sizeof(WCHAR));
+    }
+
+    NpResult = WN_SUCCESS;
+
+exit:
+    if (0 != VolumeListBuf)
+        MemFree(VolumeListBuf);
+
+    return NpResult;
+}
+
 typedef struct
 {
     DWORD Signature;                    /* cheap and cheerful! */
@@ -1137,7 +1271,6 @@ DWORD APIENTRY NPEnumResource(
     PWCHAR ProviderName = 0;
     DWORD Count;
     PWCHAR P, VolumePrefix;
-    ULONG Backslashes;
     WCHAR Drive;
 
     if (!FspNpValidateEnum(Enum))
@@ -1153,22 +1286,7 @@ DWORD APIENTRY NPEnumResource(
     {
         if (L'\0' == *P)
         {
-            /*
-             * Extract the VolumePrefix from the VolumeName.
-             *
-             * The VolumeName will have the following syntax:
-             *     \Device\Volume{GUID}\Server\Share
-             *
-             * We want to extract the \Server\Share part. We will simply count backslashes and
-             * stop at the third one.
-             */
-
-            for (Backslashes = 0, VolumePrefix = Enum->VolumeName; VolumePrefix < P; VolumePrefix++)
-                if (L'\\' == *VolumePrefix)
-                    if (3 == ++Backslashes)
-                        break;
-
-            if (3 == Backslashes)
+            if (FspNpGetVolumePrefix(Enum->VolumeName, P, &VolumePrefix))
             {
                 Drive = FspNpGetDriveLetter(&Enum->LogicalDrives, Enum->VolumeName);
 
