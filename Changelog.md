@@ -43,6 +43,8 @@
 
 - [FIX] Sign the installer custom action DLL before embedding it in the MSI to satisfy Windows Smart App Control code integrity policy. See GitHub issue #527.
 
+- [DOC] Clarify Node.js/JavaScript binding status and guidance for third-party WinFsp packages. See GitHub issue #544.
+
 
 ## v2.2B2 (2026 Beta2)
 
