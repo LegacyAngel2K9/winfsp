@@ -254,6 +254,12 @@ static void *ptfs_init(struct fuse_conn_info *conn, struct fuse_config *conf)
 {
     conn->want |= (conn->capable & FUSE_CAP_READDIRPLUS);
 
+#if defined(_WIN64) || defined(_WIN32)
+#if defined(FSP_FUSE_USE_STAT_EX) && defined(FSP_FUSE_CAP_STAT_EX)
+    conn->want |= (conn->capable & FSP_FUSE_CAP_STAT_EX);
+#endif
+#endif
+
 #if defined(FSP_FUSE_CAP_CASE_INSENSITIVE)
     conn->want |= (conn->capable & FSP_FUSE_CAP_CASE_INSENSITIVE);
 #endif
@@ -275,6 +281,17 @@ static int ptfs_utimens(const char *path, const struct fuse_timespec tv[2], stru
 
     return -1 != utimensat(AT_FDCWD, path, tv, AT_SYMLINK_NOFOLLOW) ? 0 : -errno;
 }
+
+#if defined(_WIN64) || defined(_WIN32)
+#if defined(FSP_FUSE_USE_STAT_EX)
+static int ptfs_chflags(const char *path, uint32_t flags)
+{
+    ptfs_impl_fullpath(path);
+
+    return -1 != lchflags(path, flags) ? 0 : -errno;
+}
+#endif
+#endif
 
 static struct fuse_operations ptfs_ops =
 {
@@ -302,6 +319,11 @@ static struct fuse_operations ptfs_ops =
     .init = ptfs_init,
     .create = ptfs_create,
     .utimens = ptfs_utimens,
+#if defined(_WIN64) || defined(_WIN32)
+#if defined(FSP_FUSE_USE_STAT_EX)
+    .chflags = ptfs_chflags,
+#endif
+#endif
 };
 
 static void usage(void)
