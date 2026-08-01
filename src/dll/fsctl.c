@@ -463,6 +463,25 @@ static BOOLEAN FspFsctlRunningInContainer(VOID)
         0, 0);
 }
 
+static NTSTATUS FspFsctlStartServiceStatusResult(SERVICE_STATUS *ServiceStatus)
+{
+    DWORD ErrorCode = ServiceStatus->dwWin32ExitCode;
+    DWORD ServiceSpecificErrorCode = ServiceStatus->dwServiceSpecificExitCode;
+
+    if (ERROR_SERVICE_SPECIFIC_ERROR == ErrorCode && 0 != ServiceSpecificErrorCode)
+    {
+        if (0xc0000000 == (ServiceSpecificErrorCode & 0xc0000000))
+            return (NTSTATUS)ServiceSpecificErrorCode;
+
+        ErrorCode = ServiceSpecificErrorCode;
+    }
+
+    if (ERROR_SUCCESS != ErrorCode)
+        return FspNtStatusFromWin32(ErrorCode);
+
+    return STATUS_DRIVER_UNABLE_TO_LOAD;
+}
+
 static NTSTATUS FspFsctlStartServiceByName(PWSTR DriverName)
 {
     SC_HANDLE ScmHandle = 0;
@@ -501,7 +520,13 @@ static NTSTATUS FspFsctlStartServiceByName(PWSTR DriverName)
     {
         LastError = GetLastError();
         if (ERROR_SERVICE_ALREADY_RUNNING != LastError)
-            Result = FspNtStatusFromWin32(LastError);
+        {
+            if (ERROR_SERVICE_SPECIFIC_ERROR == LastError &&
+                QueryServiceStatus(SvcHandle, &ServiceStatus))
+                Result = FspFsctlStartServiceStatusResult(&ServiceStatus);
+            else
+                Result = FspNtStatusFromWin32(LastError);
+        }
         else
             Result = STATUS_SUCCESS;
         goto exit;
@@ -521,6 +546,12 @@ static NTSTATUS FspFsctlStartServiceByName(PWSTR DriverName)
         if (SERVICE_RUNNING == ServiceStatus.dwCurrentState)
         {
             Result = STATUS_SUCCESS;
+            break;
+        }
+
+        if (SERVICE_STOPPED == ServiceStatus.dwCurrentState)
+        {
+            Result = FspFsctlStartServiceStatusResult(&ServiceStatus);
             break;
         }
 
@@ -570,12 +601,16 @@ FSP_API NTSTATUS FspFsctlStartService(VOID)
         if (NT_SUCCESS(Result) || STATUS_NO_SUCH_DEVICE != Result)
             return Result;
 
-        /* DO NOT CLOBBER Result. We will return it if our best effort below fails. */
+        /* Return the SxS start error if we find a candidate and it fails. */
 
         DriverName[0] = L'\0';
         FspFsctlEnumServices(FspFsctlStartService_EnumFn, DriverName);
 
-        if (L'\0' == DriverName[0] || !NT_SUCCESS(FspFsctlStartServiceByName(DriverName)))
+        if (L'\0' == DriverName[0])
+            return Result;
+
+        Result = FspFsctlStartServiceByName(DriverName);
+        if (!NT_SUCCESS(Result))
             return Result;
 
         return STATUS_SUCCESS;

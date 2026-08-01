@@ -21,6 +21,8 @@
 
 - [FUSE] Add FUSE option `WslFeatures` for WSL drvfs support. See GitHub issue #473.
 
+- [FIX] Report driver service start failures with the underlying service exit code. See GitHub issue #477.
+
 
 ## v2.2B2 (2026 Beta2)
 

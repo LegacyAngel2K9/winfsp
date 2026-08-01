@@ -817,6 +817,7 @@ FSP_FUSE_API struct fuse *fsp_fuse_new(struct fsp_fuse_env *env,
     struct fsp_fuse_core_opt_data opt_data;
     ULONG Size;
     PWSTR ErrorMessage = L".";
+    WCHAR ErrorMessageBuf[128];
     NTSTATUS Result;
 
     if (opsize > sizeof(struct fuse_operations))
@@ -972,6 +973,10 @@ FSP_FUSE_API struct fuse *fsp_fuse_new(struct fsp_fuse_env *env,
             ErrorMessage = L": access denied.";
             break;
 
+        case STATUS_INSUFFICIENT_RESOURCES:
+            ErrorMessage = L": insufficient system resources.";
+            break;
+
         case STATUS_NO_SUCH_DEVICE:
             ErrorMessage = L": FSD not found.";
             break;
@@ -985,7 +990,9 @@ FSP_FUSE_API struct fuse *fsp_fuse_new(struct fsp_fuse_env *env,
             break;
 
         default:
-            ErrorMessage = L": unspecified error.";
+            wsprintfW(ErrorMessageBuf, L": failed (Status=%08lx, Win32=%lu).",
+                Result, FspWin32FromNtStatus(Result));
+            ErrorMessage = ErrorMessageBuf;
             break;
         }
 
