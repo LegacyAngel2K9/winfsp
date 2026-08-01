@@ -151,7 +151,7 @@ NTSTATUS fsp_fuse_op_enter(FSP_FILE_SYSTEM *FileSystem,
 
     if (0 != FileName)
     {
-        Result = FspPosixMapWindowsToPosixPath(FileName, &PosixPath);
+        Result = fsp_fuse_map_windows_to_posix_path(f, FileName, &PosixPath);
         if (FspFsctlTransactCreateKind == Request->Kind && Request->Req.Create.OpenTargetDirectory)
             FspPathCombine((PWSTR)Request->Buffer, Suffix);
         if (!NT_SUCCESS(Result))
@@ -354,7 +354,7 @@ static BOOLEAN fsp_fuse_intf_CheckSymlinkDirectory(FSP_FILE_SYSTEM *FileSystem,
         int err;
         NTSTATUS Result;
 
-        Result = FspPosixMapPosixToWindowsPath(PosixPath, &WindowsPath);
+        Result = fsp_fuse_map_posix_to_windows_path(f, PosixPath, &WindowsPath);
         if (!NT_SUCCESS(Result))
             goto exit;
 
@@ -389,7 +389,7 @@ static BOOLEAN fsp_fuse_intf_CheckSymlinkDirectory(FSP_FILE_SYSTEM *FileSystem,
             ReparseDataBuf.V.SymbolicLinkReparseBuffer.SubstituteNameOffset / sizeof(WCHAR));
         P[ReparseDataBuf.V.SymbolicLinkReparseBuffer.SubstituteNameLength / sizeof(WCHAR)] = L'\0';
 
-        Result = FspPosixMapWindowsToPosixPath(P, &PosixResolvedPath);
+        Result = fsp_fuse_map_windows_to_posix_path(f, P, &PosixResolvedPath);
         if (!NT_SUCCESS(Result))
             goto exit;
 
@@ -667,7 +667,7 @@ static NTSTATUS fsp_fuse_intf_GetReparsePointSymlink(FSP_FILE_SYSTEM *FileSystem
         }
     }
 
-    Result = FspPosixMapPosixToWindowsPath(PosixTargetPath, &TargetPath);
+    Result = fsp_fuse_map_posix_to_windows_path(f, PosixTargetPath, &TargetPath);
     if (!NT_SUCCESS(Result))
         goto exit;
 
@@ -864,7 +864,7 @@ static NTSTATUS fsp_fuse_intf_GetSecurityByName(FSP_FILE_SYSTEM *FileSystem,
     char *PosixPath = 0;
     NTSTATUS Result;
 
-    Result = FspPosixMapWindowsToPosixPath(FileName, &PosixPath);
+    Result = fsp_fuse_map_windows_to_posix_path(f, FileName, &PosixPath);
     if (!NT_SUCCESS(Result))
         goto exit;
 
@@ -900,7 +900,7 @@ static VOID fsp_fuse_intf_GetOpenFileInfoPath(
     ULONG NormalizedNameSize;
 
     if (0 == f->ops.getpath(PosixPath, PosixNormalizedName, sizeof PosixNormalizedName, fi) &&
-        NT_SUCCESS(FspPosixMapPosixToWindowsPath(PosixNormalizedName, &NormalizedName)))
+        NT_SUCCESS(fsp_fuse_map_posix_to_windows_path(f, PosixNormalizedName, &NormalizedName)))
     {
         NormalizedNameSize = lstrlenW(NormalizedName) * sizeof(WCHAR);
         if (OpenFileInfo->NormalizedNameSize >= NormalizedNameSize)
@@ -2052,6 +2052,7 @@ static int fsp_fuse_intf_AddDirInfoOld(fuse_dirh_t dh, const char *name,
 static NTSTATUS fsp_fuse_intf_FixDirInfo(FSP_FILE_SYSTEM *FileSystem,
     struct fsp_fuse_file_desc *filedesc)
 {
+    struct fuse *f = FileSystem->UserContext;
     char *PosixPath = 0, *PosixName, *PosixPathEnd, SavedPathChar;
     ULONG SizeA, SizeW;
     PUINT8 Buffer;
@@ -2135,7 +2136,7 @@ static NTSTATUS fsp_fuse_intf_FixDirInfo(FSP_FILE_SYSTEM *FileSystem,
                 *PosixPathEnd = SavedPathChar;
         }
 
-        FspPosixDecodeWindowsPath(DirInfo->FileNameBuf, SizeW);
+        fsp_fuse_decode_windows_path(f, DirInfo->FileNameBuf, SizeW);
     }
 
     Result = STATUS_SUCCESS;
@@ -2223,7 +2224,7 @@ static NTSTATUS fsp_fuse_intf_GetDirInfoByName(FSP_FILE_SYSTEM *FileSystem,
     if (!filedesc->IsDirectory || filedesc->IsReparsePoint)
         return STATUS_ACCESS_DENIED;
 
-    Result = FspPosixMapWindowsToPosixPath(FileName, &PosixName);
+    Result = fsp_fuse_map_windows_to_posix_path(f, FileName, &PosixName);
     if (!NT_SUCCESS(Result))
     {
         Result = STATUS_OBJECT_NAME_NOT_FOUND; //Result?
@@ -2256,7 +2257,7 @@ static NTSTATUS fsp_fuse_intf_GetDirInfoByName(FSP_FILE_SYSTEM *FileSystem,
     if (!f->VolumeParams.CaseSensitiveSearch && 0 != f->ops.getpath)
     {
         if (0 == f->ops.getpath(PosixPath, PosixNormalizedName, sizeof PosixNormalizedName, 0) &&
-            NT_SUCCESS(FspPosixMapPosixToWindowsPath(PosixNormalizedName, &NormalizedName)))
+            NT_SUCCESS(fsp_fuse_map_posix_to_windows_path(f, PosixNormalizedName, &NormalizedName)))
         {
             NormalizedNameSuffix = NormalizedName;
             for (PWSTR P = NormalizedNameSuffix; *P; P++)
@@ -2305,7 +2306,7 @@ static NTSTATUS fsp_fuse_intf_GetReparsePointByName(
     char *PosixPath = 0;
     NTSTATUS Result;
 
-    Result = FspPosixMapWindowsToPosixPath(FileName, &PosixPath);
+    Result = fsp_fuse_map_windows_to_posix_path(f, FileName, &PosixPath);
     if (!NT_SUCCESS(Result))
         goto exit;
 
@@ -2442,7 +2443,7 @@ static NTSTATUS fsp_fuse_intf_SetReparsePoint(FSP_FILE_SYSTEM *FileSystem,
          * From this point forward we must jump to the EXIT label on failure.
          */
 
-        Result = FspPosixMapWindowsToPosixPathEx(TargetPath, &PosixTargetPath,
+        Result = fsp_fuse_map_windows_to_posix_path_ex(f, TargetPath, &PosixTargetPath,
             IO_REPARSE_TAG_SYMLINK == ReparseData->ReparseTag);
         if (!NT_SUCCESS(Result))
             goto exit;

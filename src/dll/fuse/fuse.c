@@ -78,6 +78,8 @@ static struct fuse_opt fsp_fuse_core_opts[] =
 
     FSP_FUSE_CORE_OPT("dothidden", dothidden, 1),
     FSP_FUSE_CORE_OPT("nodothidden", dothidden, 0),
+    FSP_FUSE_CORE_OPT("mapchars", nomapchars, 0),
+    FSP_FUSE_CORE_OPT("nomapchars", nomapchars, 1),
 
     FUSE_OPT_KEY("fstypename=", 'F'),
     FUSE_OPT_KEY("volname=", 'v'),
@@ -641,6 +643,7 @@ static int fsp_fuse_core_opt_proc(void *opt_data0, const char *arg, int key,
             "    -o gid=N                   set file group (-1 for mounting user group)\n"
             "    -o rellinks                interpret absolute symlinks as volume relative\n"
             "    -o dothidden               dot files have the Windows hidden file attrib\n"
+            "    -o nomapchars              do not map Windows-illegal filename chars\n"
             "    -o volname=NAME            set volume label\n"
             "    -o VolumePrefix=UNC        set UNC prefix (/Server/Share)\n"
             "        --VolumePrefix=UNC     set UNC prefix (\\Server\\Share)\n"
@@ -912,6 +915,7 @@ FSP_FUSE_API struct fuse *fsp_fuse_new(struct fsp_fuse_env *env,
     f->add_write_ea_access = opt_data.add_write_ea_access;
     f->rellinks = opt_data.rellinks;
     f->dothidden = opt_data.dothidden;
+    f->nomapchars = opt_data.nomapchars;
     f->ThreadCount = opt_data.ThreadCount;
     f->FlushOnCleanup = !!opt_data.set_FlushOnCleanup;
     memcpy(&f->ops, ops, opsize);
@@ -1011,7 +1015,7 @@ FSP_FUSE_API int fsp_fuse_notify(struct fsp_fuse_env *env,
     NTSTATUS Result;
     int result;
 
-    Result = FspPosixMapPosixToWindowsPath(path, &Path);
+    Result = fsp_fuse_map_posix_to_windows_path(f, path, &Path);
     if (!NT_SUCCESS(Result))
     {
         result = -ENOMEM;
