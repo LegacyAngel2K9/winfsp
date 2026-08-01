@@ -67,3 +67,10 @@ I have problems getting permissions to work properly in a WinFsp-FUSE file syste
 Alternatives include `-o uid=-1,gid=-1`, which presents files as owned by the user *and* group that launched the file system and `-o uid=-1,gid=11`, which presents files as owned by the user that launched the file system and the group "Authenticated Users". (The `fsptool` utility in the `bin` subdirectory of the WinFsp installation directory can be used to convert Windows accounts/SID's to UID's and vice versa.)
 +
 If `fsptool id` reports the current `User` as the logged-in account, but the default `Owner` as `BUILTIN\Administrators`, new files created by Windows may be reported to FUSE as owned by Administrators instead of the caller. Use `-o UserOwner` in this case to force WinFsp-FUSE to use the caller user as the owner for newly created files. For sshfs-win installations this option can be added to the service command line under `HKLM\SOFTWARE\WOW6432Node\WinFsp\Services\sshfs`.
+
+
+Can I use a WinFsp-FUSE file system from WSL?::
+
+    Yes. Mount the file system on a drive letter and add `-o WslFeatures` to the WinFsp-FUSE options. The drive can then be mounted from WSL with `sudo mount -t drvfs X: /mnt/x`.
++
+Native WinFsp and .NET file systems use `FSP_FSCTL_VOLUME_PARAMS::WslFeatures` and `FileSystemHost.WslFeatures` for the same opt-in support. The option is not enabled by default because WSL expects Linux metadata queries that not every FUSE file system wants to expose.

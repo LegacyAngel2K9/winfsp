@@ -19,6 +19,8 @@
 
 - [FUSE] Add FUSE option `AddWriteEaAccess`. See PR #648 by @chenjie4255.
 
+- [FUSE] Add FUSE option `WslFeatures` for WSL drvfs support. See GitHub issue #473.
+
 
 ## v2.2B2 (2026 Beta2)
 
