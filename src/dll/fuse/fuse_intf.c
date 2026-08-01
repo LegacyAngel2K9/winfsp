@@ -444,6 +444,48 @@ static inline UINT32 fsp_fuse_intf_MapFlagsToFileAttributes(uint32_t flags)
     return FileAttributes;
 }
 
+static NTSTATUS fsp_fuse_intf_GetNfsReparseMode(PREPARSE_DATA_BUFFER ReparseData,
+    PUINT32 PMode, PUINT32 PDev)
+{
+    if (IO_REPARSE_TAG_NFS != ReparseData->ReparseTag ||
+        sizeof(UINT64) > ReparseData->ReparseDataLength)
+        return STATUS_IO_REPARSE_DATA_INVALID;
+
+    switch (*(PUINT64)ReparseData->GenericReparseBuffer.DataBuffer)
+    {
+    case NFS_SPECFILE_FIFO:
+        *PMode = (*PMode & ~0170000) | 0010000;
+        *PDev = 0;
+        return STATUS_SUCCESS;
+
+    case NFS_SPECFILE_SOCK:
+        *PMode = (*PMode & ~0170000) | 0140000;
+        *PDev = 0;
+        return STATUS_SUCCESS;
+
+    case NFS_SPECFILE_CHR:
+        if (sizeof(UINT64) + 2 * sizeof(UINT32) > ReparseData->ReparseDataLength)
+            return STATUS_IO_REPARSE_DATA_INVALID;
+        *PMode = (*PMode & ~0170000) | 0020000;
+        *PDev =
+            (*(PUINT32)(ReparseData->GenericReparseBuffer.DataBuffer +  8) << 16) |
+            (*(PUINT32)(ReparseData->GenericReparseBuffer.DataBuffer + 12));
+        return STATUS_SUCCESS;
+
+    case NFS_SPECFILE_BLK:
+        if (sizeof(UINT64) + 2 * sizeof(UINT32) > ReparseData->ReparseDataLength)
+            return STATUS_IO_REPARSE_DATA_INVALID;
+        *PMode = (*PMode & ~0170000) | 0060000;
+        *PDev =
+            (*(PUINT32)(ReparseData->GenericReparseBuffer.DataBuffer +  8) << 16) |
+            (*(PUINT32)(ReparseData->GenericReparseBuffer.DataBuffer + 12));
+        return STATUS_SUCCESS;
+
+    default:
+        return STATUS_IO_REPARSE_DATA_INVALID;
+    }
+}
+
 #define FUSE_FILE_INFO(IsDirectory, fi) ((IsDirectory) ? 0 : (fi))
 #define fsp_fuse_intf_GetFileInfoEx(FileSystem, PosixPath, fi, PUid, PGid, PMode, FileInfo)\
     fsp_fuse_intf_GetFileInfoFunnel(FileSystem, PosixPath, fi, 0, PUid, PGid, PMode, 0, TRUE, FileInfo)
@@ -921,11 +963,12 @@ static NTSTATUS fsp_fuse_intf_Create(FSP_FILE_SYSTEM *FileSystem,
     struct fuse *f = FileSystem->UserContext;
     struct fuse_context *context = fsp_fuse_get_context(f->env);
     struct fsp_fuse_context_header *contexthdr = FSP_FUSE_HDR_FROM_CONTEXT(context);
-    UINT32 Uid, Gid, Mode;
+    UINT32 Uid, Gid, Mode, Dev;
     FSP_FSCTL_FILE_INFO FileInfoBuf;
     struct fsp_fuse_file_desc *filedesc = 0;
     struct fuse_file_info fi;
     BOOLEAN Opened = FALSE;
+    BOOLEAN CreatedReparsePoint = FALSE;
     int err;
     NTSTATUS Result;
 
@@ -939,12 +982,6 @@ static NTSTATUS fsp_fuse_intf_Create(FSP_FILE_SYSTEM *FileSystem,
                 Result = STATUS_EAS_NOT_SUPPORTED;
                 goto exit;
             }
-        }
-        else
-        {
-            /* !!!: revisit */
-            Result = STATUS_INVALID_PARAMETER;
-            goto exit;
         }
     }
 
@@ -989,7 +1026,36 @@ static NTSTATUS fsp_fuse_intf_Create(FSP_FILE_SYSTEM *FileSystem,
     else
         fi.flags = 0x0100 | 0x0400 | 2 /*O_CREAT|O_EXCL|O_RDWR*/;
 
-    if (CreateOptions & FILE_DIRECTORY_FILE)
+    if (ExtraBufferIsReparsePoint)
+    {
+        fuse_uid_t ContextUid;
+        fuse_gid_t ContextGid;
+
+        if (0 == ExtraBuffer || 0 == f->ops.mknod ||
+            (CreateOptions & FILE_DIRECTORY_FILE))
+        {
+            Result = STATUS_INVALID_DEVICE_REQUEST;
+            goto exit;
+        }
+
+        Result = fsp_fuse_intf_GetNfsReparseMode((PREPARSE_DATA_BUFFER)ExtraBuffer,
+            &Mode, &Dev);
+        if (!NT_SUCCESS(Result))
+            goto exit;
+
+        ContextUid = context->uid;
+        ContextGid = context->gid;
+        context->uid = Uid, context->gid = Gid;
+        err = f->ops.mknod(contexthdr->PosixPath, Mode, Dev);
+        context->uid = ContextUid, context->gid = ContextGid;
+        Result = fsp_fuse_ntstatus_from_errno(f->env, err);
+        if (!NT_SUCCESS(Result))
+            goto exit;
+
+        fi.fh = -1;
+        CreatedReparsePoint = TRUE;
+    }
+    else if (CreateOptions & FILE_DIRECTORY_FILE)
     {
         if (0 != f->ops.mkdir)
         {
@@ -1046,9 +1112,10 @@ static NTSTATUS fsp_fuse_intf_Create(FSP_FILE_SYSTEM *FileSystem,
     if (!NT_SUCCESS(Result))
         goto exit;
 
-    Opened = TRUE;
+    Opened = !CreatedReparsePoint;
 
-    if (0 != FileAttributes &&
+    if (!CreatedReparsePoint &&
+        0 != FileAttributes &&
         0 != (f->conn_want & FSP_FUSE_CAP_STAT_EX) && 0 != f->ops.chflags)
     {
         err = f->ops.chflags(contexthdr->PosixPath,
@@ -1068,25 +1135,16 @@ static NTSTATUS fsp_fuse_intf_Create(FSP_FILE_SYSTEM *FileSystem,
             goto exit;
     }
 
-    if (0 != ExtraBuffer)
+    if (0 != ExtraBuffer && !ExtraBufferIsReparsePoint)
     {
-        if (!ExtraBufferIsReparsePoint)
-        {
-            Result = FspFileSystemEnumerateEa(FileSystem,
-                fsp_fuse_intf_SetEaEntry, contexthdr->PosixPath, ExtraBuffer, ExtraLength);
-            if (!NT_SUCCESS(Result) && STATUS_INVALID_DEVICE_REQUEST != Result)
-                goto exit;
-        }
-        else
-        {
-            /* !!!: revisit: WslFeatures, GetFileInfoFunnel, GetReparsePointEx, SetReparsePoint */
-            Result = STATUS_INVALID_PARAMETER;
+        Result = FspFileSystemEnumerateEa(FileSystem,
+            fsp_fuse_intf_SetEaEntry, contexthdr->PosixPath, ExtraBuffer, ExtraLength);
+        if (!NT_SUCCESS(Result) && STATUS_INVALID_DEVICE_REQUEST != Result)
             goto exit;
-        }
     }
 
     Result = fsp_fuse_intf_GetFileInfoEx(FileSystem, contexthdr->PosixPath,
-        FUSE_FILE_INFO(CreateOptions & FILE_DIRECTORY_FILE, &fi),
+        CreatedReparsePoint ? 0 : FUSE_FILE_INFO(CreateOptions & FILE_DIRECTORY_FILE, &fi),
         &Uid, &Gid, &Mode, &FileInfoBuf);
     if (!NT_SUCCESS(Result))
         goto exit;
@@ -1103,7 +1161,7 @@ static NTSTATUS fsp_fuse_intf_Create(FSP_FILE_SYSTEM *FileSystem,
 
     filedesc->PosixPath = contexthdr->PosixPath;
     filedesc->IsDirectory = !!(FileInfoBuf.FileAttributes & FILE_ATTRIBUTE_DIRECTORY);
-    filedesc->IsReparsePoint = FALSE;
+    filedesc->IsReparsePoint = CreatedReparsePoint;
     filedesc->OpenFlags = fi.flags;
     filedesc->FileHandle = fi.fh;
     filedesc->DirBuffer = 0;
