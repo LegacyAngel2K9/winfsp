@@ -521,6 +521,8 @@ static NTSTATUS fsp_fuse_intf_GetFileInfoFunnel(FSP_FILE_SYSTEM *FileSystem,
     }
     if (StatEx)
         FileInfo->FileAttributes |= fsp_fuse_intf_MapFlagsToFileAttributes(stbuf.st_flags);
+    if (0040000 != (stbuf.st_mode & 0170000) && 0 == (stbuf.st_mode & 0222))
+        FileInfo->FileAttributes |= FILE_ATTRIBUTE_READONLY;
     if (f->dothidden)
     {
         const char *basename = PosixPath;
