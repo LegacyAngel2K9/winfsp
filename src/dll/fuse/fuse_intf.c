@@ -1772,6 +1772,14 @@ static NTSTATUS fsp_fuse_intf_CanDelete(FSP_FILE_SYSTEM *FileSystem,
     struct fuse_dirhandle dh;
     int err;
 
+    if (filedesc->IsDirectory && !filedesc->IsReparsePoint)
+    {
+        if (0 == f->ops.rmdir)
+            return STATUS_INVALID_DEVICE_REQUEST;
+    }
+    else if (0 == f->ops.unlink)
+        return STATUS_INVALID_DEVICE_REQUEST;
+
     if (0 != (f->conn_want & FSP_FUSE_CAP_DELETE_ACCESS) && 0 != f->ops.access)
     {
         NTSTATUS Result;
@@ -1827,6 +1835,9 @@ static NTSTATUS fsp_fuse_intf_Rename(FSP_FILE_SYSTEM *FileSystem,
     struct fsp_fuse_file_desc *filedesc = FileDesc;
     int err;
     NTSTATUS Result;
+
+    if (0 == f->ops.rename)
+        return STATUS_INVALID_DEVICE_REQUEST;
 
     Result = fsp_fuse_intf_GetFileInfoEx(FileSystem, contexthdr->PosixPath, 0,
         &Uid, &Gid, &Mode, &FileInfoBuf);
