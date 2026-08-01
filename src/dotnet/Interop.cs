@@ -1487,8 +1487,13 @@ namespace Fsp.Interop
         }
         private static T GetEntryPoint<T>(IntPtr Module)
         {
+#if NETSTANDARD2_0
+            return Marshal.GetDelegateForFunctionPointer<T>(
+                GetEntryPointPtr(Module, typeof(T).Name));
+#else
             return (T)(object)Marshal.GetDelegateForFunctionPointer(
                 GetEntryPointPtr(Module, typeof(T).Name), typeof(T));
+#endif
         }
         private static void LoadProto(IntPtr Module)
         {
@@ -1542,14 +1547,21 @@ namespace Fsp.Interop
         }
         private static void CheckVersion()
         {
-            FileVersionInfo Info;
+            Version InfoVersion;
             UInt32 Version = 0, VersionMajor, VersionMinor;
-            Info = FileVersionInfo.GetVersionInfo(Assembly.GetExecutingAssembly().Location);
+            String Location = Assembly.GetExecutingAssembly().Location;
+            if (!String.IsNullOrEmpty(Location))
+            {
+                FileVersionInfo Info = FileVersionInfo.GetVersionInfo(Location);
+                InfoVersion = new Version(Info.FileMajorPart, Info.FileMinorPart);
+            }
+            else
+                InfoVersion = Assembly.GetExecutingAssembly().GetName().Version;
             FspVersion(out Version); VersionMajor = Version >> 16; VersionMinor = Version & 0xFFFF;
-            if (Info.FileMajorPart != VersionMajor || Info.FileMinorPart > VersionMinor)
+            if (InfoVersion.Major != VersionMajor || InfoVersion.Minor > VersionMinor)
                 throw new TypeLoadException(String.Format(
                     "incorrect dll version (need {0}.{1}, have {2}.{3})",
-                    Info.FileMajorPart, Info.FileMinorPart, VersionMajor, VersionMinor));
+                    InfoVersion.Major, InfoVersion.Minor, VersionMajor, VersionMinor));
         }
         static Api()
         {
