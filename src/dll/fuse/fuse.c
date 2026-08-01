@@ -484,6 +484,15 @@ static int fsp_fuse_set_uidmap(const char *Spec)
     NTSTATUS Result;
     int res = -1;
 
+    if (0 == invariant_stricmp(Spec, "ad"))
+    {
+        FspPosixSetUidMap(0, 0, 0);
+        Result = FspPosixSetAdUidMap(TRUE);
+        return NT_SUCCESS(Result) ? 0 : -1;
+    }
+
+    FspPosixSetAdUidMap(FALSE);
+
     Len = lstrlenA(Spec);
     if (sizeof Buf <= Len)
         return -1;
@@ -662,6 +671,7 @@ static int fsp_fuse_core_opt_proc(void *opt_data0, const char *arg, int key,
             "    -o LegacyUnlinkRename      do not support new POSIX unlink/rename\n"
             "    -o ThreadCount             number of file system dispatcher threads\n"
             "    -o uidmap=UID:SID[;...]    explicit UID <-> SID map (max 8 entries)\n"
+            "    -o uidmap=ad               use AD uidNumber/gidNumber attributes\n"
             );
         opt_data->help = 1;
         return 1;
