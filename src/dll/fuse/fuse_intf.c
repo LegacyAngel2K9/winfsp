@@ -1016,6 +1016,8 @@ static NTSTATUS fsp_fuse_intf_Create(FSP_FILE_SYSTEM *FileSystem,
     }
     else
     {
+        Mode = (Mode & ~0170000) | 0100000; /* S_IFREG */
+
         if (0 != f->ops.create)
         {
             err = f->ops.create(contexthdr->PosixPath, Mode, &fi);
@@ -1029,6 +1031,11 @@ static NTSTATUS fsp_fuse_intf_Create(FSP_FILE_SYSTEM *FileSystem,
                 Result = fsp_fuse_ntstatus_from_errno(f->env, err);
                 goto exit;
             }
+
+            if ('C' == f->env->environment) /* Cygwin */
+                fi.flags &= ~(0x0200 | 0x0800) /*O_CREAT|O_EXCL*/;
+            else
+                fi.flags &= ~(0x0100 | 0x0400) /*O_CREAT|O_EXCL*/;
 
             err = f->ops.open(contexthdr->PosixPath, &fi);
             Result = fsp_fuse_ntstatus_from_errno(f->env, err);
