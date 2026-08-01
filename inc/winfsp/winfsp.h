@@ -1849,6 +1849,8 @@ FSP_API NTSTATUS FspCreateSecurityDescriptor(FSP_FILE_SYSTEM *FileSystem,
  *     This security descriptor can be later freed using FspDeleteSecurityDescriptor.
  * @return
  *     STATUS_SUCCESS or error code.
+ *     Returns STATUS_INVALID_OWNER when OWNER_SECURITY_INFORMATION attempts to assign
+ *     an owner different from the descriptor's current owner.
  * @see
  *     SetSecurity
  *     FspDeleteSecurityDescriptor

@@ -441,6 +441,20 @@ FSP_API NTSTATUS FspSetSecurityDescriptor(
     if (0 == InputDescriptor)
         return STATUS_NO_SECURITY_ON_OBJECT;
 
+    if (SecurityInformation & OWNER_SECURITY_INFORMATION)
+    {
+        PSID InputOwner = 0, ModificationOwner = 0;
+        BOOL OwnerDefaulted;
+
+        if (!GetSecurityDescriptorOwner(InputDescriptor, &InputOwner, &OwnerDefaulted) ||
+            !GetSecurityDescriptorOwner(ModificationDescriptor, &ModificationOwner, &OwnerDefaulted))
+            return FspNtStatusFromWin32(GetLastError());
+
+        if (0 != ModificationOwner &&
+            (0 == InputOwner || !EqualSid(InputOwner, ModificationOwner)))
+            return STATUS_INVALID_OWNER;
+    }
+
     /*
      * SetPrivateObjectSecurity is a broken API. It assumes that the passed
      * descriptor resides on memory allocated by CreatePrivateObjectSecurity
