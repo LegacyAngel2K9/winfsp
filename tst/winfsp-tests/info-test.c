@@ -21,6 +21,7 @@
 
 #include <winfsp/winfsp.h>
 #include <tlib/testsuite.h>
+#include <npapi.h>
 #include <sddl.h>
 #include <strsafe.h>
 #include <time.h>
@@ -2732,6 +2733,63 @@ void network_physical_name_test(void)
         network_physical_name_dotest(MemfsNet, L"\\\\memfs\\share", TRUE);
 }
 
+void network_resource_information_test(void)
+{
+    if (NtfsTests || !WinFspNetTests)
+        return;
+
+#if defined(_M_ARM64) || defined(_ARM64_)
+#define FSP_TEST_DLL_NAME L"winfsp-a64.dll"
+#elif defined(_M_X64) || defined(_M_AMD64) || defined(_AMD64_)
+#define FSP_TEST_DLL_NAME L"winfsp-x64.dll"
+#elif defined(_M_IX86) || defined(_X86_)
+#define FSP_TEST_DLL_NAME L"winfsp-x86.dll"
+#else
+#error unknown architecture
+#endif
+
+    void *memfs = memfs_start_ex(MemfsNet, 0);
+
+    NETRESOURCEW InputResource = { 0 };
+    NETRESOURCEW *Resource;
+    HMODULE Module;
+    PF_NPGetResourceInformation NpGetResourceInformation;
+    PWSTR System;
+    DWORD BufferSize, Result;
+    UINT8 Buffer[sizeof(NETRESOURCEW) + 512 * sizeof(WCHAR)];
+
+    Module = GetModuleHandleW(FSP_TEST_DLL_NAME);
+    ASSERT(0 != Module);
+    NpGetResourceInformation = (PVOID)GetProcAddress(Module, "NPGetResourceInformation");
+    ASSERT(0 != NpGetResourceInformation);
+
+    InputResource.dwType = RESOURCETYPE_DISK;
+    InputResource.lpRemoteName = L"\\\\memfs\\share\\relative";
+
+    BufferSize = 0;
+    System = 0;
+    Result = NpGetResourceInformation(&InputResource, 0, &BufferSize, &System);
+    ASSERT(WN_MORE_DATA == Result);
+    ASSERT(0 != BufferSize);
+    ASSERT(sizeof Buffer >= BufferSize);
+
+    memset(Buffer, 0, sizeof Buffer);
+    Result = NpGetResourceInformation(&InputResource, Buffer, &BufferSize, &System);
+    ASSERT(WN_SUCCESS == Result);
+
+    Resource = (PVOID)Buffer;
+    ASSERT(RESOURCE_GLOBALNET == Resource->dwScope);
+    ASSERT(RESOURCETYPE_DISK == Resource->dwType);
+    ASSERT(RESOURCEDISPLAYTYPE_SHARE == Resource->dwDisplayType);
+    ASSERT(0 != (Resource->dwUsage & RESOURCEUSAGE_CONNECTABLE));
+    ASSERT(0 == wcscmp(L"\\\\memfs\\share", Resource->lpRemoteName));
+    ASSERT(0 == wcscmp(L"\\relative", System));
+
+    memfs_stop(memfs);
+
+#undef FSP_TEST_DLL_NAME
+}
+
 void info_tests(void)
 {
     if (!OptFuseExternal && !OptShareName)
@@ -2769,4 +2827,6 @@ void info_tests(void)
         TEST(remote_protocol_test);
     if (!NtfsTests)
         TEST(network_physical_name_test);
+    if (!NtfsTests)
+        TEST(network_resource_information_test);
 }

@@ -49,6 +49,8 @@
 
 - [FIX] Report physical UNC names for WinFsp network volumes to avoid Explorer srvsvc/IPC$ fallback delays at copy completion. See GitHub issue #554.
 
+- [FIX] Cover Explorer UNC resource resolution for WinFsp network volumes. See GitHub issue #569.
+
 
 ## v2.2B2 (2026 Beta2)
 
