@@ -354,10 +354,26 @@ exit:
     return Result;
 }
 
-static VOID FspMountNotifyShellDriveChange(VOID)
+static VOID FspMountNotifyShellDriveChange(PWSTR MountPoint, LONG Event)
 {
     HRESULT HResult;
     LPITEMIDLIST Pidl;
+    WCHAR RootPath[4], Drive;
+
+    Drive = 0;
+    if (FspPathIsMountmgrDrive(MountPoint))
+        Drive = MountPoint[4];
+    else if (FspPathIsDrive(MountPoint))
+        Drive = MountPoint[0];
+
+    if (0 != Drive)
+    {
+        RootPath[0] = Drive;
+        RootPath[1] = L':';
+        RootPath[2] = L'\\';
+        RootPath[3] = L'\0';
+        SHChangeNotify(Event, SHCNF_PATHW, RootPath, 0);
+    }
 
     HResult = SHGetKnownFolderIDList(&FOLDERID_ComputerFolder, KF_FLAG_DEFAULT, 0, &Pidl);
     if (SUCCEEDED(HResult))
@@ -758,6 +774,10 @@ FSP_API NTSTATUS FspMountSet(FSP_MOUNT_DESC *Desc)
 
     Result = FspMountSet_Internal(Desc);
 
+    if (NT_SUCCESS(Result) && IsDrive)
+        /* nudge existing Explorer windows to discover the new drive root */
+        FspMountNotifyShellDriveChange(Desc->MountPoint, SHCNE_DRIVEADD);
+
     return Result;
 }
 
@@ -774,7 +794,7 @@ FSP_API NTSTATUS FspMountRemove(FSP_MOUNT_DESC *Desc)
 
     if (NT_SUCCESS(Result) && IsDrive)
         /* send an extra notification to remove the "ghost" drive in the shell's navigation pane */
-        FspMountNotifyShellDriveChange();
+        FspMountNotifyShellDriveChange(Desc->MountPoint, SHCNE_DRIVEREMOVED);
 
     return Result;
 }
