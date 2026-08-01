@@ -28,6 +28,21 @@
 
 #include "winfsp-tests.h"
 
+static BOOLEAN nameinfo_matches(PFILE_NAME_INFO NameInfo, PWSTR ExpectedName)
+{
+    return NameInfo->FileNameLength == wcslen(ExpectedName) * sizeof(WCHAR) &&
+        0 == mywcscmp(ExpectedName, -1, NameInfo->FileName,
+            NameInfo->FileNameLength / sizeof(WCHAR));
+}
+
+static BOOLEAN finalpath_matches(PWSTR ExpectedName, PWSTR FinalPath)
+{
+    PWSTR Suffix = wcsrchr(ExpectedName, L'\\');
+
+    return 0 == wcscmp(ExpectedName, FinalPath) ||
+        (0 != Suffix && 0 == wcscmp(Suffix, FinalPath));
+}
+
 void getfileattr_dotest(ULONG Flags, PWSTR Prefix, ULONG FileInfoTimeout)
 {
     void *memfs = memfs_start_ex(Flags, FileInfoTimeout);
@@ -177,6 +192,8 @@ void getfileinfo_dotest(ULONG Flags, PWSTR Prefix, ULONG FileInfoTimeout)
     BY_HANDLE_FILE_INFORMATION FileInfo;
     FILETIME FileTime;
     LONGLONG TimeLo, TimeHi;
+    PWSTR ExpectedName, ExpectedNameAlt = L"\\file0";
+    BOOLEAN AllowAltName;
 
     GetSystemTimeAsFileTime(&FileTime);
     TimeLo = ((PLARGE_INTEGER)&FileTime)->QuadPart;
@@ -227,8 +244,12 @@ void getfileinfo_dotest(ULONG Flags, PWSTR Prefix, ULONG FileInfoTimeout)
     {
         PNameInfo->FileNameLength -= OptSharePrefixLength;
     }
+    ExpectedName = -1 == Flags ? FilePath + 6 : 0 == Prefix ? L"\\file0" : FilePath + 1;
+    AllowAltName = IsExternalDirectoryMount(Flags, Prefix);
     if (-1 == Flags)
-        ASSERT(PNameInfo->FileNameLength == wcslen(FilePath + 6) * sizeof(WCHAR));
+        ASSERT(PNameInfo->FileNameLength == wcslen(ExpectedName) * sizeof(WCHAR) ||
+            (AllowAltName &&
+                PNameInfo->FileNameLength == wcslen(ExpectedNameAlt) * sizeof(WCHAR)));
     else if (0 == Prefix)
         ASSERT(PNameInfo->FileNameLength == wcslen(L"\\file0") * sizeof(WCHAR));
     else
@@ -245,13 +266,16 @@ void getfileinfo_dotest(ULONG Flags, PWSTR Prefix, ULONG FileInfoTimeout)
         PNameInfo->FileNameLength -= OptSharePrefixLength;
     }
     if (-1 == Flags)
-        ASSERT(PNameInfo->FileNameLength == wcslen(FilePath + 6) * sizeof(WCHAR));
+        ASSERT(PNameInfo->FileNameLength == wcslen(ExpectedName) * sizeof(WCHAR) ||
+            (AllowAltName &&
+                PNameInfo->FileNameLength == wcslen(ExpectedNameAlt) * sizeof(WCHAR)));
     else if (0 == Prefix)
         ASSERT(PNameInfo->FileNameLength == wcslen(L"\\file0") * sizeof(WCHAR));
     else
         ASSERT(PNameInfo->FileNameLength == wcslen(FilePath + 1) * sizeof(WCHAR));
     if (-1 == Flags)
-        ASSERT(0 == mywcscmp(FilePath + 6, -1, PNameInfo->FileName, PNameInfo->FileNameLength / sizeof(WCHAR)));
+        ASSERT(nameinfo_matches(PNameInfo, ExpectedName) ||
+            (AllowAltName && nameinfo_matches(PNameInfo, ExpectedNameAlt)));
     else if (0 == Prefix)
         ASSERT(0 == mywcscmp(L"\\file0", -1, PNameInfo->FileName, PNameInfo->FileNameLength / sizeof(WCHAR)));
     else
@@ -310,6 +334,7 @@ void getfileinfo_name_dotest(ULONG Flags, PWSTR Prefix, ULONG FileInfoTimeout)
     WCHAR FilePath[MAX_PATH];
     WCHAR FinalPath[MAX_PATH];
     DWORD Result;
+    BOOLEAN AllowAltName = IsExternalDirectoryMount(Flags, Prefix);
 
     if (-1 == Flags)
         StringCbPrintfW(OrigPath, sizeof OrigPath, L"%s\\fileFILE",
@@ -352,7 +377,8 @@ void getfileinfo_name_dotest(ULONG Flags, PWSTR Prefix, ULONG FileInfoTimeout)
         ASSERT(0 == _wcsicmp(OrigPath, FinalPath)); /* use wcsicmp when going through share (?) */
     }
     else
-        ASSERT(0 == wcscmp(OrigPath, FinalPath)); /* don't use mywcscmp */
+        ASSERT(0 == wcscmp(OrigPath, FinalPath) ||
+            (AllowAltName && finalpath_matches(OrigPath, FinalPath))); /* don't use mywcscmp */
 
     if (!OptNoTraverseToken || -1 != Flags)
     {
@@ -369,7 +395,8 @@ void getfileinfo_name_dotest(ULONG Flags, PWSTR Prefix, ULONG FileInfoTimeout)
                 FinalPath + OptSharePrefixLength / sizeof(WCHAR),
                 (wcslen(FinalPath) + 1) * sizeof(WCHAR) - OptSharePrefixLength);
         }
-        ASSERT(0 == wcscmp(OrigPath, FinalPath)); /* don't use mywcscmp */
+        ASSERT(0 == wcscmp(OrigPath, FinalPath) ||
+            (AllowAltName && finalpath_matches(OrigPath, FinalPath))); /* don't use mywcscmp */
     }
 
     CloseHandle(Handle);

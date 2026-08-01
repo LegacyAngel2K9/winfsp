@@ -88,7 +88,7 @@ void create_dotest(ULONG Flags, PWSTR Prefix)
         StringCbPrintfW(FilePath, sizeof FilePath, L"%s%s\\\\\\file0",
             Prefix ? L"" : L"\\\\?\\GLOBALROOT", Prefix ? Prefix : memfs_volumename(memfs));
 
-        if (0 == OptMountPoint)
+        if (0 == OptMountPoint && !IsExternalDirectoryMount(Flags, Prefix))
         {
             Handle = CreateFileW(FilePath,
                 GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, 0, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, 0);
@@ -186,7 +186,7 @@ void create_dotest(ULONG Flags, PWSTR Prefix)
         StringCbPrintfW(FilePath, sizeof FilePath, L"%s%s\\dir1\\\\",
             Prefix ? L"" : L"\\\\?\\GLOBALROOT", Prefix ? Prefix : memfs_volumename(memfs));
 
-        if (0 == OptMountPoint && 0 == OptShareName)
+        if (0 == OptMountPoint && 0 == OptShareName && !IsExternalDirectoryMount(Flags, Prefix))
         {
             Success = CreateDirectoryW(FilePath, 0);
             ASSERT(!Success);
