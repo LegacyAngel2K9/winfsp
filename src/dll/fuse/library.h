@@ -89,9 +89,14 @@ struct fsp_fuse_file_desc
 {
     char *PosixPath;
     BOOLEAN IsDirectory, IsReparsePoint;
+    BOOLEAN FileInfoValid;
+    SRWLOCK FileInfoLock;
     int OpenFlags;
     UINT64 FileHandle;
     PVOID DirBuffer;
+    UINT64 FileInfoExpiration;
+    UINT32 FileInfoUid, FileInfoGid, FileInfoMode;
+    FSP_FSCTL_FILE_INFO FileInfo;
 };
 struct fuse_dirhandle
 {
