@@ -137,6 +137,9 @@ struct fuse3_operations
     /* _ */ int (*flock)(const char *path, struct fuse3_file_info *, int op);
     /* _ */ int (*fallocate)(const char *path, int mode, fuse_off_t off, fuse_off_t len,
         struct fuse3_file_info *fi);
+    /* _ */ ssize_t (*copy_file_range)(const char *path_in, struct fuse3_file_info *fi_in,
+        fuse_off_t offset_in, const char *path_out, struct fuse3_file_info *fi_out,
+        fuse_off_t offset_out, size_t size, int flags);
     /* WinFsp */
     /* S */ int (*chflags)(const char *path, uint32_t flags);
 };
