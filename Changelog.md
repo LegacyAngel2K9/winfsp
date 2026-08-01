@@ -59,6 +59,8 @@
 
 - [MEMFS] Report `NTFS` by default from the standalone MEMFS samples so elevated executables work on newer Windows versions. See GitHub issue #611.
 
+- [FIX] Answer MountDev identity IOCTL's on mounted file-system volumes so Shell path lookups remain stable for directory mount points. See GitHub issue #612.
+
 
 ## v2.2B2 (2026 Beta2)
 
