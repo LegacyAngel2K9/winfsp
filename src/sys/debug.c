@@ -39,6 +39,8 @@ const char *NtStatusSym(NTSTATUS Status)
         return "FSP_STATUS_IOQ_POST";
     case FSP_STATUS_IOQ_POST_BEST_EFFORT:
         return "FSP_STATUS_IOQ_POST_BEST_EFFORT";
+    case FSP_STATUS_IOQ_POST_PRIORITY:
+        return "FSP_STATUS_IOQ_POST_PRIORITY";
     default:
         return "NTSTATUS:Unknown";
     }

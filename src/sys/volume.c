@@ -1715,6 +1715,7 @@ NTSTATUS FspVolumeWork(
     FSP_FSVOL_DEVICE_EXTENSION *FsvolDeviceExtension = FspFsvolDeviceExtension(FsvolDeviceObject);
     FSP_FSCTL_TRANSACT_REQ *Request = IrpSp->Parameters.FileSystemControl.Type3InputBuffer;
     BOOLEAN BestEffort = FSP_FSCTL_WORK_BEST_EFFORT == IrpSp->Parameters.FileSystemControl.FsControlCode;
+    ULONG PostFlags = BestEffort ? FSP_IOQ_POST_FLAG_BEST_EFFORT : 0;
 
     ASSERT(0 == Request->Hint);
 
@@ -1727,7 +1728,7 @@ NTSTATUS FspVolumeWork(
      * so that we can disassociate the Request on failure and release ownership
      * back to the caller.
      */
-    if (!FspIoqPostIrpEx(FsvolDeviceExtension->Ioq, Irp, BestEffort, &Result))
+    if (!FspIoqPostIrpEx(FsvolDeviceExtension->Ioq, Irp, PostFlags, &Result))
     {
         Request->Hint = 0;
         FspIrpSetRequest(Irp, 0);

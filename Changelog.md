@@ -53,6 +53,8 @@
 
 - [FIX] Return NTFS-compatible `FileHardLinkInformation` for WinFsp files to satisfy Windows NFS share probing. See GitHub issue #583.
 
+- [FIX] Prioritize directory queries in the user-mode dispatch queue so listings stay responsive during heavy write workloads. See GitHub issue #588.
+
 
 ## v2.2B2 (2026 Beta2)
 

@@ -58,6 +58,11 @@
 #define FSP_STATUS_IGNORE_BIT           (0x10000000)
 #define FSP_STATUS_IOQ_POST             (FSP_STATUS_PRIVATE_BIT | 0x0000)
 #define FSP_STATUS_IOQ_POST_BEST_EFFORT (FSP_STATUS_PRIVATE_BIT | 0x0001)
+#define FSP_STATUS_IOQ_POST_PRIORITY    (FSP_STATUS_PRIVATE_BIT | 0x0002)
+
+/* IOQ post flags */
+#define FSP_IOQ_POST_FLAG_BEST_EFFORT   (0x1)
+#define FSP_IOQ_POST_FLAG_PRIORITY      (0x2)
 
 /* misc macros */
 #define FSP_ALLOC_INTERNAL_TAG          'IpsF'
@@ -253,7 +258,8 @@ VOID FspTraceNtStatus(const char *file, int line, const char *func, NTSTATUS Sta
         if (STATUS_PENDING != Result && !(FSP_STATUS_IGNORE_BIT & Result))\
         {                               \
             ASSERT(0 == (FSP_STATUS_PRIVATE_BIT & Result) ||\
-                FSP_STATUS_IOQ_POST == Result || FSP_STATUS_IOQ_POST_BEST_EFFORT == Result);\
+                FSP_STATUS_IOQ_POST == Result || FSP_STATUS_IOQ_POST_BEST_EFFORT == Result ||\
+                FSP_STATUS_IOQ_POST_PRIORITY == Result);\
             FSP_DEBUGLOG_("%p, %s%c, %s%s, " fmt, " = %s[%lld]",\
                 Irp,                    \
                 DeviceExtensionKindSym(FspDeviceExtension(IrpSp->DeviceObject)->Kind),\
@@ -267,8 +273,11 @@ VOID FspTraceNtStatus(const char *file, int line, const char *func, NTSTATUS Sta
             {                           \
                 FSP_FSVOL_DEVICE_EXTENSION *fsp_leave_FsvolDeviceExtension =\
                     FspFsvolDeviceExtension(DeviceObject);\
+                ULONG fsp_leave_PostFlags = FSP_STATUS_IOQ_POST_BEST_EFFORT == Result ?\
+                    FSP_IOQ_POST_FLAG_BEST_EFFORT :\
+                    FSP_STATUS_IOQ_POST_PRIORITY == Result ? FSP_IOQ_POST_FLAG_PRIORITY : 0;\
                 if (!FspIoqPostIrpEx(fsp_leave_FsvolDeviceExtension->Ioq, Irp,\
-                    FSP_STATUS_IOQ_POST_BEST_EFFORT == Result, &Result))\
+                    fsp_leave_PostFlags, &Result))\
                 {                       \
                     DEBUGLOG("FspIoqPostIrpEx = %s", NtStatusSym(Result));\
                     FspIopCompleteIrp(Irp, Result);\
@@ -979,8 +988,9 @@ retry:
 #define FSP_IOQ_PROCESS_NO_CANCEL
 #define FspIoqTimeout                   ((PIRP)1)
 #define FspIoqCancelled                 ((PIRP)2)
-#define FspIoqPostIrp(Q, I, R)          FspIoqPostIrpEx(Q, I, FALSE, R)
-#define FspIoqPostIrpBestEffort(Q, I, R)FspIoqPostIrpEx(Q, I, TRUE, R)
+#define FspIoqPostIrp(Q, I, R)          FspIoqPostIrpEx(Q, I, 0, R)
+#define FspIoqPostIrpBestEffort(Q, I, R)FspIoqPostIrpEx(Q, I, FSP_IOQ_POST_FLAG_BEST_EFFORT, R)
+#define FspIoqPostIrpPriority(Q, I, R)  FspIoqPostIrpEx(Q, I, FSP_IOQ_POST_FLAG_PRIORITY, R)
 typedef struct
 {
     KSPIN_LOCK SpinLock;
@@ -1005,7 +1015,7 @@ VOID FspIoqDelete(FSP_IOQ *Ioq);
 VOID FspIoqStop(FSP_IOQ *Ioq, BOOLEAN CancelIrps);
 BOOLEAN FspIoqStopped(FSP_IOQ *Ioq);
 VOID FspIoqRemoveExpired(FSP_IOQ *Ioq, UINT64 InterruptTime);
-BOOLEAN FspIoqPostIrpEx(FSP_IOQ *Ioq, PIRP Irp, BOOLEAN BestEffort, NTSTATUS *PResult);
+BOOLEAN FspIoqPostIrpEx(FSP_IOQ *Ioq, PIRP Irp, ULONG Flags, NTSTATUS *PResult);
 PIRP FspIoqNextPendingIrp(FSP_IOQ *Ioq, PIRP BoundaryIrp, PLARGE_INTEGER Timeout,
     PIRP CancellableIrp);
 ULONG FspIoqPendingIrpCount(FSP_IOQ *Ioq);
