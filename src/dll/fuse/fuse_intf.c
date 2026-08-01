@@ -786,12 +786,13 @@ exit:
 }
 
 static NTSTATUS fsp_fuse_intf_GetReparsePointSymlink(FSP_FILE_SYSTEM *FileSystem,
-    const char *PosixPath, PVOID Buffer, PSIZE_T PSize)
+    const char *PosixPath, PVOID Buffer, PSIZE_T PSize, PBOOLEAN PAbsoluteTarget)
 {
     struct fuse *f = FileSystem->UserContext;
     char PosixTargetPath[FSP_FSCTL_TRANSACT_PATH_SIZEMAX / sizeof(WCHAR)];
     PWSTR TargetPath = 0;
     ULONG TargetPathLength;
+    BOOLEAN AbsoluteTarget;
     int err;
     NTSTATUS Result;
 
@@ -807,8 +808,12 @@ static NTSTATUS fsp_fuse_intf_GetReparsePointSymlink(FSP_FILE_SYSTEM *FileSystem
         goto exit;
     }
 
+    AbsoluteTarget = '/' == PosixTargetPath[0];
+    if (0 != PAbsoluteTarget)
+        *PAbsoluteTarget = AbsoluteTarget;
+
     /* is this an absolute path? */
-    if ('/' == PosixTargetPath[0])
+    if (AbsoluteTarget)
     {
         /* we do not support absolute paths without the rellinks option */
         if (!f->rellinks)
@@ -850,6 +855,7 @@ static NTSTATUS fsp_fuse_intf_GetReparsePointEx(FSP_FILE_SYSTEM *FileSystem,
     PREPARSE_DATA_BUFFER ReparseData;
     USHORT ReparseDataLength;
     SIZE_T Size;
+    BOOLEAN AbsoluteSymlinkTarget;
     NTSTATUS Result;
 
     if (0 != PResolveFileAttributes && FILE_ATTRIBUTE_REPARSE_POINT == PResolveFileAttributes[0])
@@ -952,7 +958,7 @@ skip_getattr:
         Size = *PSize -
             FIELD_OFFSET(REPARSE_DATA_BUFFER, SymbolicLinkReparseBuffer.PathBuffer);
         Result = fsp_fuse_intf_GetReparsePointSymlink(FileSystem, PosixPath,
-            ReparseData->SymbolicLinkReparseBuffer.PathBuffer, &Size);
+            ReparseData->SymbolicLinkReparseBuffer.PathBuffer, &Size, &AbsoluteSymlinkTarget);
         if (!NT_SUCCESS(Result))
             return Result;
 
@@ -961,7 +967,12 @@ skip_getattr:
         ReparseData->SymbolicLinkReparseBuffer.SubstituteNameLength = (USHORT)Size;
         ReparseData->SymbolicLinkReparseBuffer.PrintNameOffset = 0;
         ReparseData->SymbolicLinkReparseBuffer.PrintNameLength = (USHORT)Size;
-        ReparseData->SymbolicLinkReparseBuffer.Flags = SYMLINK_FLAG_RELATIVE;
+        /*
+         * Under rellinks absolute POSIX symlinks are mapped to volume-root
+         * Windows paths and must not be resolved relative to the link parent.
+         */
+        ReparseData->SymbolicLinkReparseBuffer.Flags =
+            AbsoluteSymlinkTarget ? 0 : SYMLINK_FLAG_RELATIVE;
         break;
 
     default:

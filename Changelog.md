@@ -35,6 +35,8 @@
 
 - [.NET] Make native API binding explicit and idempotent for NativeAOT compatibility. See GitHub issue #506.
 
+- [FUSE] Preserve absolute POSIX symlink targets as volume-root relative when using `rellinks`. See GitHub issue #509.
+
 
 ## v2.2B2 (2026 Beta2)
 
