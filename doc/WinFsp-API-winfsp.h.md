@@ -2275,8 +2275,10 @@ STATUS\_SUCCESS or error code.
 
 This function supports drive letters (X:) or directories as mount points:
 
-- Drive letters: Refer to the documentation of the DefineDosDevice Windows API
-to better understand how they are created.
+- Drive letters: Local disk file systems are first mounted using the Windows Mount
+Manager when possible (this is required by some Windows features such as ISO image
+mounting) and otherwise fall back to the DefineDosDevice Windows API. Use the
+`\\.\X:` syntax to require Mount Manager mounting.
 
 
 - Directories: They can be used as mount points for disk based file systems. They cannot

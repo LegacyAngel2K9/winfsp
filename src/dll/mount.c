@@ -94,6 +94,60 @@ static NTSTATUS FspMountSet_Directory(PWSTR VolumeName, PWSTR MountPoint,
     PSECURITY_DESCRIPTOR SecurityDescriptor, BOOLEAN AllowMountOnExistingDirectory,
     PHANDLE PMountHandle);
 static NTSTATUS FspMountRemove_Directory(HANDLE MountHandle);
+static NTSTATUS FspMountSet_MountmgrDrive(HANDLE VolumeHandle, PWSTR VolumeName, PWSTR MountPoint);
+static NTSTATUS FspMountRemove_MountmgrDrive(HANDLE VolumeHandle, PWSTR MountPoint);
+static BOOLEAN FspMountIsNetworkVolumeName(PWSTR VolumeName)
+{
+    DWORD Backslashes;
+    PWSTR P;
+
+    /*
+     * Count how many backslashes our VolumeName has. If it is 3 or more this is
+     * a network file system.
+     */
+    for (P = VolumeName, Backslashes = 0; *P; P++)
+        if (L'\\' == *P)
+            if (3 == ++Backslashes)
+                return TRUE;
+
+    return FALSE;
+}
+
+static NTSTATUS FspMountSet_DriveViaMountmgr(FSP_MOUNT_DESC *Desc)
+{
+    WCHAR MountmgrMountPointBuf[7];
+    PWSTR MountPoint = 0;
+    NTSTATUS Result;
+
+    /*
+     * Native Windows ISO mounting expects the containing volume to be registered
+     * with the Mount Manager. Try that path for ordinary drive-letter mounts and
+     * let the caller fall back to DefineDosDevice when MountMgr is unavailable.
+     */
+    if (FspMountIsNetworkVolumeName(Desc->VolumeName))
+        return STATUS_NETWORK_ACCESS_DENIED;
+
+    memcpy(MountmgrMountPointBuf, L"\\\\.\\X:", sizeof MountmgrMountPointBuf);
+    MountmgrMountPointBuf[4] = Desc->MountPoint[0];
+
+    Result = FspMountSet_MountmgrDrive(Desc->VolumeHandle, Desc->VolumeName, MountmgrMountPointBuf);
+    if (!NT_SUCCESS(Result))
+        return Result;
+
+    MountPoint = MemAlloc(sizeof MountmgrMountPointBuf);
+    if (0 == MountPoint)
+    {
+        FspMountRemove_MountmgrDrive(Desc->VolumeHandle, MountmgrMountPointBuf);
+        return STATUS_INSUFFICIENT_RESOURCES;
+    }
+    memcpy(MountPoint, MountmgrMountPointBuf, sizeof MountmgrMountPointBuf);
+
+    MemFree(Desc->MountPoint);
+    Desc->MountPoint = MountPoint;
+    Desc->MountHandle = 0;
+
+    return STATUS_SUCCESS;
+}
 
 static NTSTATUS FspMountSet_MountmgrDrive(HANDLE VolumeHandle, PWSTR VolumeName, PWSTR MountPoint)
 {
@@ -498,10 +552,10 @@ static NTSTATUS FspMountSet_Directory(PWSTR VolumeName, PWSTR MountPoint,
     SECURITY_ATTRIBUTES SecurityAttributes;
     HANDLE MountHandle = INVALID_HANDLE_VALUE;
     BOOLEAN ExistingDirectory = FALSE;
-    DWORD Backslashes, Bytes;
+    DWORD Bytes;
     USHORT VolumeNameLength, BackslashLength, ReparseDataLength;
     PREPARSE_DATA_BUFFER ReparseData = 0;
-    PWSTR P, PathBuffer;
+    PWSTR PathBuffer;
 
     *PMountHandle = 0;
 
@@ -511,13 +565,11 @@ static NTSTATUS FspMountSet_Directory(PWSTR VolumeName, PWSTR MountPoint,
      * Count how many backslashes our VolumeName has. If it is 3 or more this is a network
      * file system. Preemptively return STATUS_NETWORK_ACCESS_DENIED.
      */
-    for (P = VolumeName, Backslashes = 0; *P; P++)
-        if (L'\\' == *P)
-            if (3 == ++Backslashes)
-            {
-                Result = STATUS_NETWORK_ACCESS_DENIED;
-                goto exit;
-            }
+    if (FspMountIsNetworkVolumeName(VolumeName))
+    {
+        Result = STATUS_NETWORK_ACCESS_DENIED;
+        goto exit;
+    }
 
     memset(&SecurityAttributes, 0, sizeof SecurityAttributes);
     SecurityAttributes.nLength = sizeof SecurityAttributes;
@@ -681,6 +733,12 @@ NTSTATUS FspMountSet_Internal(FSP_MOUNT_DESC *Desc)
             if (0 == (Drives & (1 << (Drive - 'A'))))
             {
                 Desc->MountPoint[0] = Drive;
+                Result = FspMountSet_DriveViaMountmgr(Desc);
+                if (NT_SUCCESS(Result))
+                    return Result;
+                if (STATUS_INSUFFICIENT_RESOURCES == Result)
+                    return Result;
+
                 Result = FspMountSet_Drive(Desc->VolumeName, Desc->MountPoint,
                     &Desc->MountHandle);
                 if (NT_SUCCESS(Result))
@@ -695,8 +753,18 @@ NTSTATUS FspMountSet_Internal(FSP_MOUNT_DESC *Desc)
         return FspMountSet_MountmgrDirectory(Desc->VolumeHandle, Desc->VolumeName, Desc->MountPoint,
             Desc->Security, Desc->AllowMountOnExistingDirectory, &Desc->MountHandle);
     else if (FspPathIsDrive(Desc->MountPoint))
+    {
+        NTSTATUS Result;
+
+        Result = FspMountSet_DriveViaMountmgr(Desc);
+        if (NT_SUCCESS(Result))
+            return Result;
+        if (STATUS_INSUFFICIENT_RESOURCES == Result)
+            return Result;
+
         return FspMountSet_Drive(Desc->VolumeName, Desc->MountPoint,
             &Desc->MountHandle);
+    }
     else
         return FspMountSet_Directory(Desc->VolumeName, Desc->MountPoint, Desc->Security,
             Desc->AllowMountOnExistingDirectory, &Desc->MountHandle);
