@@ -562,7 +562,8 @@ FSP_API NTSTATUS FspPosixMapUidToSid(UINT32 Uid, PSID *PSid)
     }
     else if (0x100000 <= Uid && Uid < 0xff000000)
     {
-        if ((Uid < 0x300000 || 0 == FspTrustedDomainCount) &&
+        /* Preserve primary-domain UID roundtrips for large RID values. */
+        if ((Uid < 0xf00000 || 0 == FspTrustedDomainCount) &&
             0 != FspPrimaryDomainSid &&
             5 == FspPrimaryDomainSid->IdentifierAuthority.Value[5] &&
             4 == FspPrimaryDomainSid->SubAuthorityCount)
