@@ -61,6 +61,8 @@
 
 - [FIX] Answer MountDev identity IOCTL's on mounted file-system volumes so Shell path lookups remain stable for directory mount points. See GitHub issue #612.
 
+- [FIX] Invalidate cached file metadata after Cleanup updates so kernel-cache volumes report fresh write times after close. See GitHub issue #629.
+
 
 ## v2.2B2 (2026 Beta2)
 
