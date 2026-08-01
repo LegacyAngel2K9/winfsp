@@ -235,7 +235,7 @@ enum
     UINT32 RejectIrpPriorToTransact0:1;     /* DEPRECATED: reject IRP's prior to FspFsctlTransact0 */\
     UINT32 SupportsPosixUnlinkRename:1;     /* file system supports POSIX-style unlink and rename */\
     UINT32 PostDispositionWhenNecessaryOnly:1;  /* post Disposition for dirs or READONLY attr check */\
-    UINT32 KmReservedFlags:1;\
+    UINT32 AllowRelSymlinksAcrossFileSystem:1;  /* allow relative symlinks to cross file systems */\
     WCHAR Prefix[FSP_FSCTL_VOLUME_PREFIX_SIZE / sizeof(WCHAR)]; /* UNC prefix (\Server\Share) */\
     WCHAR FileSystemName[FSP_FSCTL_VOLUME_FSNAME_SIZE / sizeof(WCHAR)];
 #define FSP_FSCTL_VOLUME_PARAMS_V1_FIELD_DEFN\

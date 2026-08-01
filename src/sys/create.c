@@ -944,6 +944,23 @@ NTSTATUS FspFsvolCreateComplete(
                     if (!NT_SUCCESS(Result))
                         FSP_RETURN(Result = STATUS_REPARSE_POINT_NOT_RESOLVED);
 
+                    /* let the I/O manager keep mount point context for opted-in relative symlinks */
+                    if (FlagOn(ReparseData->SymbolicLinkReparseBuffer.Flags, SYMLINK_FLAG_RELATIVE) &&
+                        FsvolDeviceExtension->VolumeParams.AllowRelSymlinksAcrossFileSystem)
+                    {
+                        ASSERT(0 == Irp->Tail.Overlay.AuxiliaryBuffer);
+                        Irp->Tail.Overlay.AuxiliaryBuffer = FspAllocNonPagedExternal(
+                            Response->Rsp.Create.Reparse.Buffer.Size);
+                        if (0 == Irp->Tail.Overlay.AuxiliaryBuffer)
+                            FSP_RETURN(Result = STATUS_INSUFFICIENT_RESOURCES);
+
+                        RtlCopyMemory(Irp->Tail.Overlay.AuxiliaryBuffer, ReparseData,
+                            Response->Rsp.Create.Reparse.Buffer.Size);
+
+                        Irp->IoStatus.Information = IO_REPARSE_TAG_SYMLINK;
+                        FSP_RETURN(Result = STATUS_REPARSE);
+                    }
+
                     if (!FlagOn(ReparseData->SymbolicLinkReparseBuffer.Flags, SYMLINK_FLAG_RELATIVE))
                     {
                         RtlZeroMemory(&ReparseTargetPrefix0, sizeof ReparseTargetPrefix0);

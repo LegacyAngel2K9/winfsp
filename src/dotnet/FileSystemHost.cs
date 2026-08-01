@@ -366,6 +366,11 @@ namespace Fsp
             get { return 0 != (_VolumeParams.Flags & VolumeParams.SupportsPosixUnlinkRename); }
             set { _VolumeParams.Flags |= (value ? VolumeParams.SupportsPosixUnlinkRename : 0); }
         }
+        public Boolean AllowRelSymlinksAcrossFileSystem
+        {
+            get { return 0 != (_VolumeParams.Flags & VolumeParams.AllowRelSymlinksAcrossFileSystem); }
+            set { _VolumeParams.Flags |= (value ? VolumeParams.AllowRelSymlinksAcrossFileSystem : 0); }
+        }
         /// <summary>
         /// Gets or sets the prefix for a network file system.
         /// </summary>

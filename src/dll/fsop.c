@@ -1760,6 +1760,11 @@ static NTSTATUS FspFileSystemResolveReparsePointsInternal(FSP_FILE_SYSTEM *FileS
         if (IO_REPARSE_TAG_SYMLINK != ReparseData->ReparseTag)
             goto reparse_data_exit;
 
+        /* let the I/O manager resolve opted-in relative symlinks against the opened path */
+        if (FileSystem->AllowRelSymlinksAcrossFileSystem &&
+            0 != (ReparseData->SymbolicLinkReparseBuffer.Flags & SYMLINK_FLAG_RELATIVE))
+            goto reparse_data_exit;
+
         if (0 == --MaxTries)
             return STATUS_REPARSE_POINT_NOT_RESOLVED;
 

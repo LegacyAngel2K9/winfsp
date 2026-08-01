@@ -2391,6 +2391,8 @@ NTSTATUS MemfsCreateFunnel(
     BOOLEAN CaseInsensitive = !!(Flags & MemfsCaseInsensitive);
     BOOLEAN FlushAndPurgeOnCleanup = !!(Flags & MemfsFlushAndPurgeOnCleanup);
     BOOLEAN SupportsPosixUnlinkRename = !(Flags & MemfsLegacyUnlinkRename);
+    BOOLEAN AllowRelSymlinksAcrossFileSystem =
+        !!(Flags & MemfsAllowRelSymlinksAcrossFileSystem);
     PWSTR DevicePath = MemfsNet == (Flags & MemfsDeviceMask) ?
         L"" FSP_FSCTL_NET_DEVICE_NAME : L"" FSP_FSCTL_DISK_DEVICE_NAME;
     UINT64 AllocationUnit;
@@ -2476,6 +2478,7 @@ NTSTATUS MemfsCreateFunnel(
     VolumeParams.RejectIrpPriorToTransact0 = 1;
 #endif
     VolumeParams.SupportsPosixUnlinkRename = SupportsPosixUnlinkRename;
+    VolumeParams.AllowRelSymlinksAcrossFileSystem = AllowRelSymlinksAcrossFileSystem;
     if (0 != VolumePrefix)
         wcscpy_s(VolumeParams.Prefix, sizeof VolumeParams.Prefix / sizeof(WCHAR), VolumePrefix);
     wcscpy_s(VolumeParams.FileSystemName, sizeof VolumeParams.FileSystemName / sizeof(WCHAR),

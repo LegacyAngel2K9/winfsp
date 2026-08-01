@@ -57,6 +57,7 @@ namespace Fsp.Interop
         internal const UInt32 RejectIrpPriorToTransact0 = 0x10000000;
         internal const UInt32 SupportsPosixUnlinkRename = 0x20000000;
         internal const UInt32 PostDispositionWhenNecessaryOnly = 0x40000000;
+        internal const UInt32 AllowRelSymlinksAcrossFileSystem = 0x80000000;
         internal const int PrefixSize = 192;
         internal const int FileSystemNameSize = 16;
 

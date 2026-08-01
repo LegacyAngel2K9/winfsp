@@ -105,6 +105,7 @@ static struct fuse_opt fsp_fuse_core_opts[] =
     FSP_FUSE_CORE_OPT("KeepFileCache=", set_KeepFileCache, 1),
     FSP_FUSE_CORE_OPT("FlushOnCleanup=", set_FlushOnCleanup, 1),
     FSP_FUSE_CORE_OPT("LegacyUnlinkRename=", set_LegacyUnlinkRename, 1),
+    FSP_FUSE_CORE_OPT("AllowRelSymlinksAcrossFileSystem", set_AllowRelSymlinksAcrossFileSystem, 1),
     FSP_FUSE_CORE_OPT("ThreadCount=%u", ThreadCount, 0),
     FUSE_OPT_KEY("UNC=", 'U'),
     FUSE_OPT_KEY("--UNC=", 'U'),
@@ -670,6 +671,8 @@ static int fsp_fuse_core_opt_proc(void *opt_data0, const char *arg, int key,
             "    -o DirtyPageThreshold=N    dirty page threshold (pages)\n"
             "    -o KeepFileCache           do not discard cache when files are closed\n"
             "    -o LegacyUnlinkRename      do not support new POSIX unlink/rename\n"
+            "    -o AllowRelSymlinksAcrossFileSystem\n"
+            "                                allow relative symlinks to cross file systems\n"
             "    -o ThreadCount             number of file system dispatcher threads\n"
             "    -o UserOwner               use caller user as file owner\n"
             "    -o uidmap=UID:SID[;...]    explicit UID <-> SID map (max 8 entries)\n"
@@ -895,6 +898,8 @@ FSP_FUSE_API struct fuse *fsp_fuse_new(struct fsp_fuse_env *env,
         opt_data.VolumeParams.FlushAndPurgeOnCleanup = FALSE;
     if (opt_data.set_LegacyUnlinkRename)
         opt_data.VolumeParams.SupportsPosixUnlinkRename = FALSE;
+    if (opt_data.set_AllowRelSymlinksAcrossFileSystem)
+        opt_data.VolumeParams.AllowRelSymlinksAcrossFileSystem = TRUE;
     if (FIELD_OFFSET(struct fuse_operations, link) + sizeof ops->link <= opsize &&
         0 != ops->link)
         opt_data.VolumeParams.HardLinks = TRUE;
