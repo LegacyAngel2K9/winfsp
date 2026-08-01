@@ -4,4 +4,5 @@ It can be built with the following tools:
 
 - Using Visual Studio (`winfsp.sln`).
 - Using Cygwin GCC and linking directly with the WinFsp DLL (`make winfsp-fuse3`).
+- Using MinGW GCC and linking directly with the WinFsp DLL (`make winfsp-fuse3-mingw`).
 - Using Cygwin GCC and linking to CYGFUSE3 (`make cygfuse3`).
