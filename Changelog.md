@@ -55,6 +55,8 @@
 
 - [FIX] Prioritize directory queries in the user-mode dispatch queue so listings stay responsive during heavy write workloads. See GitHub issue #588.
 
+- [TEST] Cover loading a companion DLL from WinFsp volumes to guard executable scenarios that depend on same-directory DLL loads. See GitHub issue #599.
+
 
 ## v2.2B2 (2026 Beta2)
 
