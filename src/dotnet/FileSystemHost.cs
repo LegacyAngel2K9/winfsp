@@ -40,6 +40,7 @@ namespace Fsp
         /// <param name="FileSystem">The file system to host.</param>
         public FileSystemHost(FileSystemBase FileSystem)
         {
+            Api.Init();
             _VolumeParams.Version = (UInt16)Marshal.SizeOf(_VolumeParams);
             _VolumeParams.Flags = VolumeParams.UmFileContextIsFullContext;
             _FileSystem = FileSystem;
@@ -402,6 +403,7 @@ namespace Fsp
         /// </summary>
         public static Int32 GetCurrentSiloId(out Guid SiloId)
         {
+            Api.Init();
             return Api.FspFsctlGetCurrentSiloId(out SiloId);
         }
         /// <summary>
@@ -415,6 +417,7 @@ namespace Fsp
         /// <returns>STATUS_SUCCESS or error code.</returns>
         public Int32 Preflight(String MountPoint)
         {
+            Api.Init();
             return Api.FspFileSystemPreflight(
                 _VolumeParams.IsPrefixEmpty() ? Api.ProductName + ".Disk" : Api.ProductName + ".Net",
                 MountPoint);
@@ -478,6 +481,7 @@ namespace Fsp
             Boolean Synchronized = false,
             UInt32 DebugLog = 0)
         {
+            Api.Init();
             Int32 Result;
             try
             {
@@ -570,6 +574,7 @@ namespace Fsp
         /// <returns>STATUS_SUCCESS or error code.</returns>
         public static Int32 SetDebugLogFile(String FileName)
         {
+            Api.Init();
             return Api.SetDebugLogFile(FileName);
         }
         /// <summary>
@@ -577,6 +582,7 @@ namespace Fsp
         /// </summary>
         public static Version Version()
         {
+            Api.Init();
             return Api.GetVersion();
         }
         /// <summary>

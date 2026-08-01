@@ -1463,6 +1463,8 @@ namespace Fsp.Interop
         /* initialization */
         internal static String ProductName = "WinFsp";
         internal static String ProductFileName = "winfsp";
+        private static Object InitLock = new Object();
+        private static Boolean Initialized;
         private static IntPtr LoadDll()
         {
             String RegPath, DllName, DllPath;
@@ -1571,39 +1573,58 @@ namespace Fsp.Interop
         }
         private static void CheckVersion()
         {
+            Assembly ThisAssembly = typeof(Api).Assembly;
             Version InfoVersion;
             UInt32 Version = 0, VersionMajor, VersionMinor;
-            String Location = Assembly.GetExecutingAssembly().Location;
+            String Location = ThisAssembly.Location;
             if (!String.IsNullOrEmpty(Location))
             {
                 FileVersionInfo Info = FileVersionInfo.GetVersionInfo(Location);
                 InfoVersion = new Version(Info.FileMajorPart, Info.FileMinorPart);
             }
             else
-                InfoVersion = Assembly.GetExecutingAssembly().GetName().Version;
+                return; /* NativeAOT has no managed assembly file version to compare. */
             FspVersion(out Version); VersionMajor = Version >> 16; VersionMinor = Version & 0xFFFF;
             if (InfoVersion.Major != VersionMajor || InfoVersion.Minor > VersionMinor)
                 throw new TypeLoadException(String.Format(
                     "incorrect dll version (need {0}.{1}, have {2}.{3})",
                     InfoVersion.Major, InfoVersion.Minor, VersionMajor, VersionMinor));
         }
-        static Api()
+        private static void InitProductName()
         {
-#if false //DEBUG
-            if (Debugger.IsAttached)
-                Debugger.Break();
-#endif
-            object[] attributes = Assembly.GetExecutingAssembly().GetCustomAttributes(
-                typeof(AssemblyProductAttribute), false);
-            if (null != attributes &&
-                0 < attributes.Length &&
-                null != attributes[0] as AssemblyProductAttribute)
+            try
             {
-                ProductName = (attributes[0] as AssemblyProductAttribute).Product;
-                ProductFileName = ProductName.ToLowerInvariant();
+                object[] attributes = typeof(Api).Assembly.GetCustomAttributes(
+                    typeof(AssemblyProductAttribute), false);
+                if (null != attributes &&
+                    0 < attributes.Length &&
+                    null != attributes[0] as AssemblyProductAttribute)
+                {
+                    ProductName = (attributes[0] as AssemblyProductAttribute).Product;
+                    ProductFileName = ProductName.ToLowerInvariant();
+                }
             }
-            LoadProto(LoadDll());
-            CheckVersion();
+            catch
+            {
+            }
+        }
+        internal static void Init()
+        {
+            if (Initialized)
+                return;
+            lock (InitLock)
+            {
+                if (Initialized)
+                    return;
+#if false //DEBUG
+                if (Debugger.IsAttached)
+                    Debugger.Break();
+#endif
+                InitProductName();
+                LoadProto(LoadDll());
+                CheckVersion();
+                Initialized = true;
+            }
         }
 
         [StructLayout(LayoutKind.Sequential)]

@@ -1261,6 +1261,7 @@ namespace Fsp
         /// </summary>
         public static Int32 NtStatusFromWin32(UInt32 Error)
         {
+            Api.Init();
             return Api.FspNtStatusFromWin32(Error);
         }
         /// <summary>
@@ -1268,6 +1269,7 @@ namespace Fsp
         /// </summary>
         public static UInt32 Win32FromNtStatus(Int32 Status)
         {
+            Api.Init();
             return Api.FspWin32FromNtStatus(Status);
         }
         /// <summary>
@@ -1278,6 +1280,7 @@ namespace Fsp
         /// </remarks>
         public static UInt32 GetOperationShareAccess()
         {
+            Api.Init();
             return Api.FspFileSystemOperationShareAccess();
         }
         /// <summary>
@@ -1288,6 +1291,7 @@ namespace Fsp
         /// </remarks>
         public static int GetOperationProcessId()
         {
+            Api.Init();
             return (int)Api.FspFileSystemOperationProcessId();
         }
         /// <summary>
@@ -1313,6 +1317,7 @@ namespace Fsp
             AccessControlSections Sections,
             Byte[] ModificationDescriptor)
         {
+            Api.Init();
             UInt32 SecurityInformation = 0;
             if (0 != (Sections & AccessControlSections.Owner))
                 SecurityInformation |= 1/*OWNER_SECURITY_INFORMATION*/;
@@ -1353,6 +1358,7 @@ namespace Fsp
             Byte[] ModificationDescriptor,
             ref Byte[] ModifiedDescriptor)
         {
+            Api.Init();
             UInt32 SecurityInformation = 0;
             if (0 != (Sections & AccessControlSections.Owner))
                 SecurityInformation |= 1/*OWNER_SECURITY_INFORMATION*/;
@@ -1452,6 +1458,7 @@ namespace Fsp
             String FileName,
             out UInt32 ReparsePointIndex)
         {
+            Api.Init();
             GCHandle Handle = GCHandle.Alloc(this, GCHandleType.Normal);
             try
             {
@@ -1509,6 +1516,7 @@ namespace Fsp
             Byte[] CurrentReparseData,
             Byte[] ReplaceReparseData)
         {
+            Api.Init();
             return Api.FspFileSystemCanReplaceReparsePoint(CurrentReparseData, ReplaceReparseData);
         }
         private static Int32 GetReparsePointByName(
@@ -1561,6 +1569,7 @@ namespace Fsp
         }
         public void StopServiceIfNecessary(Boolean Normally)
         {
+            Api.Init();
             Api.FspFileSystemStopServiceIfNecessary(IntPtr.Zero, Normally);
         }
     }

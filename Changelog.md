@@ -33,6 +33,8 @@
 
 - [FIX] Add regression coverage for `FILE_OPEN_REPARSE_POINT` file opens and include stripped trailing slash state in create debug logs. See GitHub issue #505.
 
+- [.NET] Make native API binding explicit and idempotent for NativeAOT compatibility. See GitHub issue #506.
+
 
 ## v2.2B2 (2026 Beta2)
 
