@@ -70,6 +70,21 @@ typedef struct
     WCHAR FileName[1];
 } FSP_FILE_NETWORK_PHYSICAL_NAME_INFORMATION;
 
+typedef struct
+{
+    ULONG NextEntryOffset;
+    LONGLONG ParentFileId;
+    ULONG FileNameLength;
+    WCHAR FileName[1];
+} FSP_FILE_LINK_ENTRY_INFORMATION;
+
+typedef struct
+{
+    ULONG BytesNeeded;
+    ULONG EntriesReturned;
+    FSP_FILE_LINK_ENTRY_INFORMATION Entry;
+} FSP_FILE_LINKS_INFORMATION;
+
 static NTSTATUS FspFsvolQueryAllInformation(PFILE_OBJECT FileObject,
     PVOID *PBuffer, PVOID BufferEnd,
     const FSP_FSCTL_FILE_INFO *FileInfo);
@@ -82,6 +97,8 @@ static NTSTATUS FspFsvolQueryBasicInformation(PFILE_OBJECT FileObject,
 static NTSTATUS FspFsvolQueryEaInformation(PFILE_OBJECT FileObject,
     PVOID *PBuffer, PVOID BufferEnd,
     const FSP_FSCTL_FILE_INFO *FileInfo);
+static NTSTATUS FspFsvolQueryHardLinkInformation(PFILE_OBJECT FileObject,
+    PVOID *PBuffer, PVOID BufferEnd);
 static NTSTATUS FspFsvolQueryIdInformation(PFILE_OBJECT FileObject,
     PVOID *PBuffer, PVOID BufferEnd);
 static NTSTATUS FspFsvolQueryInternalInformation(PFILE_OBJECT FileObject,
@@ -165,6 +182,7 @@ FAST_IO_QUERY_OPEN FspFastIoQueryOpen;
 #pragma alloc_text(PAGE, FspFsvolQueryAttributeTagInformation)
 #pragma alloc_text(PAGE, FspFsvolQueryBasicInformation)
 #pragma alloc_text(PAGE, FspFsvolQueryEaInformation)
+#pragma alloc_text(PAGE, FspFsvolQueryHardLinkInformation)
 #pragma alloc_text(PAGE, FspFsvolQueryIdInformation)
 #pragma alloc_text(PAGE, FspFsvolQueryInternalInformation)
 #pragma alloc_text(PAGE, FspFsvolQueryNameInformation)
@@ -353,6 +371,60 @@ static NTSTATUS FspFsvolQueryEaInformation(PFILE_OBJECT FileObject,
         Info->EaSize += 4;
 
     *PBuffer = (PVOID)(Info + 1);
+
+    return STATUS_SUCCESS;
+}
+
+static NTSTATUS FspFsvolQueryHardLinkInformation(PFILE_OBJECT FileObject,
+    PVOID *PBuffer, PVOID BufferEnd)
+{
+    PAGED_CODE();
+
+    FSP_FILE_LINKS_INFORMATION *Info = (FSP_FILE_LINKS_INFORMATION *)*PBuffer;
+    FSP_FILE_NODE *FileNode = FileObject->FsContext;
+    ULONG FileNameLength;
+    ULONG BytesNeeded;
+    ULONG EntrySize;
+    ULONG PaddingLength;
+    PUINT8 Buffer = (PUINT8)Info;
+    PUINT8 BufferEndB = (PUINT8)BufferEnd;
+    PUINT8 FileNameBuffer;
+
+    if (Buffer + FIELD_OFFSET(FSP_FILE_LINKS_INFORMATION, Entry) > BufferEndB)
+        return STATUS_BUFFER_TOO_SMALL;
+
+    FspFileNodeAcquireShared(FileNode, Main);
+
+    FileNameLength = FileNode->FileName.Length;
+    EntrySize = FIELD_OFFSET(FSP_FILE_LINK_ENTRY_INFORMATION, FileName) + FileNameLength;
+    BytesNeeded = FIELD_OFFSET(FSP_FILE_LINKS_INFORMATION, Entry) +
+        FSP_FSCTL_ALIGN_UP(EntrySize, 8);
+    PaddingLength = BytesNeeded -
+        (FIELD_OFFSET(FSP_FILE_LINKS_INFORMATION, Entry.FileName) + FileNameLength);
+
+    Info->BytesNeeded = BytesNeeded;
+    Info->EntriesReturned = 0;
+
+    if (Buffer + BytesNeeded > BufferEndB)
+    {
+        FspFileNodeRelease(FileNode, Main);
+        *PBuffer = Buffer + FIELD_OFFSET(FSP_FILE_LINKS_INFORMATION, Entry);
+        return STATUS_BUFFER_OVERFLOW;
+    }
+
+    Info->EntriesReturned = 1;
+    Info->Entry.NextEntryOffset = 0;
+    Info->Entry.ParentFileId = 0;
+    Info->Entry.FileNameLength = FileNameLength / sizeof(WCHAR);
+
+    FileNameBuffer = (PUINT8)Info->Entry.FileName;
+    RtlCopyMemory(FileNameBuffer, FileNode->FileName.Buffer, FileNameLength);
+    if (0 != PaddingLength)
+        RtlZeroMemory(FileNameBuffer + FileNameLength, PaddingLength);
+
+    FspFileNodeRelease(FileNode, Main);
+
+    *PBuffer = Buffer + BytesNeeded;
 
     return STATUS_SUCCESS;
 }
@@ -1151,7 +1223,8 @@ static NTSTATUS FspFsvolQueryInformation(
         Result = FspFsvolQueryEaInformation(FileObject, &Buffer, BufferEnd, 0);
         break;
     case FileHardLinkInformation:
-        Result = STATUS_NOT_SUPPORTED;  /* no hard link enumeration support */
+        Result = FspFsvolQueryHardLinkInformation(FileObject, &Buffer, BufferEnd);
+        Irp->IoStatus.Information = (UINT_PTR)((PUINT8)Buffer - (PUINT8)Irp->AssociatedIrp.SystemBuffer);
         return Result;
     case FileIdInformation:
         Result = FspFsvolQueryIdInformation(FileObject, &Buffer, BufferEnd);

@@ -51,6 +51,8 @@
 
 - [FIX] Cover Explorer UNC resource resolution for WinFsp network volumes. See GitHub issue #569.
 
+- [FIX] Return NTFS-compatible `FileHardLinkInformation` for WinFsp files to satisfy Windows NFS share probing. See GitHub issue #583.
+
 
 ## v2.2B2 (2026 Beta2)
 

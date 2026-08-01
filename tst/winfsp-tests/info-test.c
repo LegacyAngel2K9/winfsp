@@ -90,6 +90,21 @@ typedef struct
     WCHAR FileName[1];
 } FSP_TEST_FILE_NETWORK_PHYSICAL_NAME_INFORMATION;
 
+typedef struct
+{
+    ULONG NextEntryOffset;
+    LONGLONG ParentFileId;
+    ULONG FileNameLength;
+    WCHAR FileName[1];
+} FSP_TEST_FILE_LINK_ENTRY_INFORMATION;
+
+typedef struct
+{
+    ULONG BytesNeeded;
+    ULONG EntriesReturned;
+    FSP_TEST_FILE_LINK_ENTRY_INFORMATION Entry;
+} FSP_TEST_FILE_LINKS_INFORMATION;
+
 void getfileattr_dotest(ULONG Flags, PWSTR Prefix, ULONG FileInfoTimeout)
 {
     void *memfs = memfs_start_ex(Flags, FileInfoTimeout);
@@ -390,6 +405,88 @@ void getfileinfo_test(void)
     {
         getfileinfo_dotest(MemfsNet, L"\\\\memfs\\share", 0);
         getfileinfo_dotest(MemfsNet, L"\\\\memfs\\share", 1000);
+    }
+}
+
+void gethardlinkinfo_dotest(ULONG Flags, PWSTR Prefix, ULONG FileInfoTimeout)
+{
+    void *memfs = memfs_start_ex(Flags, FileInfoTimeout);
+
+    NTSYSCALLAPI NTSTATUS NTAPI
+    NtQueryInformationFile(
+        HANDLE FileHandle,
+        PIO_STATUS_BLOCK IoStatusBlock,
+        PVOID FileInformation,
+        ULONG Length,
+        FILE_INFORMATION_CLASS FileInformationClass);
+
+    HANDLE Handle;
+    IO_STATUS_BLOCK IoStatus;
+    NTSTATUS Result;
+    BOOL Success;
+    WCHAR FilePath[MAX_PATH];
+    WCHAR ExpectedName[] = L"\\file0";
+    ULONG ExpectedBytesNeeded =
+        FIELD_OFFSET(FSP_TEST_FILE_LINKS_INFORMATION, Entry) +
+        FSP_FSCTL_ALIGN_UP(
+            FIELD_OFFSET(FSP_TEST_FILE_LINK_ENTRY_INFORMATION, FileName) +
+            (ULONG)wcslen(ExpectedName) * sizeof(WCHAR), 8);
+    union
+    {
+        FSP_TEST_FILE_LINKS_INFORMATION I;
+        UINT8 B[FIELD_OFFSET(FSP_TEST_FILE_LINKS_INFORMATION, Entry.FileName) +
+            MAX_PATH * sizeof(WCHAR)];
+    } LinkInfo;
+
+    StringCbPrintfW(FilePath, sizeof FilePath, L"%s%s\\file0",
+        Prefix ? L"" : L"\\\\?\\GLOBALROOT", Prefix ? Prefix : memfs_volumename(memfs));
+
+    Handle = CreateFileW(FilePath,
+        GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, 0,
+        CREATE_NEW, FILE_ATTRIBUTE_NORMAL | FILE_FLAG_DELETE_ON_CLOSE, 0);
+    ASSERT(INVALID_HANDLE_VALUE != Handle);
+
+    memset(&LinkInfo, 0, sizeof LinkInfo);
+    Result = NtQueryInformationFile(Handle, &IoStatus,
+        &LinkInfo, FIELD_OFFSET(FSP_TEST_FILE_LINKS_INFORMATION, Entry),
+        (FILE_INFORMATION_CLASS)46/*FileHardLinkInformation*/);
+    ASSERT(STATUS_BUFFER_OVERFLOW == Result);
+    ASSERT(ExpectedBytesNeeded == LinkInfo.I.BytesNeeded);
+    ASSERT(0 == LinkInfo.I.EntriesReturned);
+
+    memset(&LinkInfo, 0, sizeof LinkInfo);
+    Result = NtQueryInformationFile(Handle, &IoStatus,
+        &LinkInfo, sizeof LinkInfo,
+        (FILE_INFORMATION_CLASS)46/*FileHardLinkInformation*/);
+    ASSERT(STATUS_SUCCESS == Result);
+    ASSERT(ExpectedBytesNeeded == LinkInfo.I.BytesNeeded);
+    ASSERT(1 == LinkInfo.I.EntriesReturned);
+    ASSERT(0 == LinkInfo.I.Entry.NextEntryOffset);
+    ASSERT(0 == LinkInfo.I.Entry.ParentFileId);
+    ASSERT(wcslen(ExpectedName) == LinkInfo.I.Entry.FileNameLength);
+    ASSERT(0 == mywcscmp(ExpectedName, -1,
+        LinkInfo.I.Entry.FileName, LinkInfo.I.Entry.FileNameLength));
+
+    Success = CloseHandle(Handle);
+    ASSERT(Success);
+
+    memfs_stop(memfs);
+}
+
+void gethardlinkinfo_test(void)
+{
+    if (NtfsTests)
+        return;
+
+    if (WinFspDiskTests)
+    {
+        gethardlinkinfo_dotest(MemfsDisk, 0, 0);
+        gethardlinkinfo_dotest(MemfsDisk, 0, 1000);
+    }
+    if (WinFspNetTests)
+    {
+        gethardlinkinfo_dotest(MemfsNet, L"\\\\memfs\\share", 0);
+        gethardlinkinfo_dotest(MemfsNet, L"\\\\memfs\\share", 1000);
     }
 }
 
@@ -2797,6 +2894,8 @@ void info_tests(void)
     TEST(getfileinfo_test);
     if (!OptFuseExternal)
         TEST(getfileinfo_name_test);
+    if (!OptFuseExternal)
+        TEST(gethardlinkinfo_test);
     TEST(setfileinfo_test);
     TEST(delete_test);
     TEST(delete_access_test);
