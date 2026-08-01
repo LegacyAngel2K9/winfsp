@@ -63,6 +63,7 @@ static struct fuse_opt fsp_fuse_core_opts[] =
     FSP_FUSE_CORE_OPT("uid=%d", uid, 0),
     FSP_FUSE_CORE_OPT("gid=", set_gid, 1),
     FSP_FUSE_CORE_OPT("gid=%d", gid, 0),
+    FSP_FUSE_CORE_OPT("UserOwner", user_owner, 1),
     FUSE_OPT_KEY("entry_timeout", FUSE_OPT_KEY_DISCARD),
     FSP_FUSE_CORE_OPT("attr_timeout=", set_attr_timeout, 1),
     FSP_FUSE_CORE_OPT("attr_timeout=%d", attr_timeout, 0),
@@ -670,6 +671,7 @@ static int fsp_fuse_core_opt_proc(void *opt_data0, const char *arg, int key,
             "    -o KeepFileCache           do not discard cache when files are closed\n"
             "    -o LegacyUnlinkRename      do not support new POSIX unlink/rename\n"
             "    -o ThreadCount             number of file system dispatcher threads\n"
+            "    -o UserOwner               use caller user as file owner\n"
             "    -o uidmap=UID:SID[;...]    explicit UID <-> SID map (max 8 entries)\n"
             "    -o uidmap=ad               use AD uidNumber/gidNumber attributes\n"
             );
@@ -925,6 +927,7 @@ FSP_FUSE_API struct fuse *fsp_fuse_new(struct fsp_fuse_env *env,
     f->set_create_dir_umask = opt_data.set_create_dir_umask; f->create_dir_umask = opt_data.create_dir_umask;
     f->set_uid = opt_data.set_uid; f->uid = opt_data.uid;
     f->set_gid = opt_data.set_gid; f->gid = opt_data.gid;
+    f->user_owner = opt_data.user_owner;
     f->add_write_ea_access = opt_data.add_write_ea_access;
     f->rellinks = opt_data.rellinks;
     f->dothidden = opt_data.dothidden;

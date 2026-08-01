@@ -530,6 +530,12 @@ static NTSTATUS fsp_fuse_intf_GetFileInfoFunnel(FSP_FILE_SYSTEM *FileSystem,
         stbuf.st_mode = (stbuf.st_mode & 0170000) | (0777 & ~f->umask);
     if (f->set_uid)
         stbuf.st_uid = f->uid;
+    if (f->user_owner)
+    {
+        struct fuse_context *context = fsp_fuse_get_context_internal();
+        if (0 != context && (UINT32)-1 != context->uid)
+            stbuf.st_uid = context->uid;
+    }
     if (f->set_gid)
         stbuf.st_gid = f->gid;
 
@@ -1009,6 +1015,8 @@ static NTSTATUS fsp_fuse_intf_Create(FSP_FILE_SYSTEM *FileSystem,
             &Uid, &Gid, &Mode);
         if (!NT_SUCCESS(Result))
             goto exit;
+        if (f->user_owner && (UINT32)-1 != context->uid)
+            Uid = context->uid;
     }
     Mode &= ~context->umask;
     if (CreateOptions & FILE_DIRECTORY_FILE)
