@@ -37,6 +37,8 @@
 
 - [FUSE] Preserve absolute POSIX symlink targets as volume-root relative when using `rellinks`. See GitHub issue #509.
 
+- [FIX] Add a Win32 fallback for directory mount point creation on virtual or pooled volumes that reject the direct native create path. See GitHub issue #512.
+
 
 ## v2.2B2 (2026 Beta2)
 

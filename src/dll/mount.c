@@ -546,6 +546,32 @@ static NTSTATUS FspMountRemove_Drive(PWSTR VolumeName, PWSTR MountPoint, HANDLE 
     return Result;
 }
 
+static HANDLE FspMountCreateDirectoryFileWCompat(PWSTR MountPoint,
+    PSECURITY_ATTRIBUTES SecurityAttributes)
+{
+    HANDLE MountHandle;
+    DWORD LastError;
+
+    if (!CreateDirectoryW(MountPoint, SecurityAttributes))
+        return INVALID_HANDLE_VALUE;
+
+    MountHandle = CreateFileW(MountPoint,
+        FILE_WRITE_ATTRIBUTES | DELETE,
+        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+        SecurityAttributes,
+        OPEN_EXISTING,
+        FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT | FILE_FLAG_DELETE_ON_CLOSE,
+        0);
+    if (INVALID_HANDLE_VALUE == MountHandle)
+    {
+        LastError = GetLastError();
+        RemoveDirectoryW(MountPoint);
+        SetLastError(LastError);
+    }
+
+    return MountHandle;
+}
+
 static NTSTATUS FspMountSet_Directory(PWSTR VolumeName, PWSTR MountPoint,
     PSECURITY_DESCRIPTOR SecurityDescriptor, BOOLEAN AllowMountOnExistingDirectory,
     PHANDLE PMountHandle)
@@ -615,16 +641,33 @@ static NTSTATUS FspMountSet_Directory(PWSTR VolumeName, PWSTR MountPoint,
     }
 
     if (INVALID_HANDLE_VALUE == MountHandle)
+    {
+        DWORD LastError;
+
         MountHandle = FspCreateDirectoryFileW(MountPoint,
             FILE_WRITE_ATTRIBUTES,
             FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
             &SecurityAttributes,
             FILE_ATTRIBUTE_DIRECTORY |
                 FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_POSIX_SEMANTICS | FILE_FLAG_DELETE_ON_CLOSE);
-    if (INVALID_HANDLE_VALUE == MountHandle)
-    {
-        Result = FspNtStatusFromWin32(GetLastError());
-        goto exit;
+
+        LastError = GetLastError();
+        if (INVALID_HANDLE_VALUE == MountHandle &&
+            (ERROR_FILE_NOT_FOUND == LastError || ERROR_PATH_NOT_FOUND == LastError))
+        {
+            /*
+             * Some virtual/pooled volumes reject the relative NtCreateFile directory
+             * create above with PATH_NOT_FOUND, but accept the Win32 create/open path.
+             */
+            MountHandle = FspMountCreateDirectoryFileWCompat(MountPoint, &SecurityAttributes);
+            LastError = GetLastError();
+        }
+
+        if (INVALID_HANDLE_VALUE == MountHandle)
+        {
+            Result = FspNtStatusFromWin32(LastError);
+            goto exit;
+        }
     }
 
     VolumeNameLength = (USHORT)lstrlenW(VolumeName);
