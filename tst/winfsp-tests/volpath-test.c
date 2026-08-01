@@ -290,6 +290,15 @@ static void volpath_mount_test(void)
         //volpath_mount_dotest(MemfsDisk, 0, 0);
         volpath_mount_dotest(MemfsDisk, 0, MountPoint);
 
+        /*
+         * Ordinary X: mounts should also be MountMgr-visible. This keeps them
+         * visible to Explorer outside the creating logon/elevation context.
+         */
+        MountPoint[0] = Drive;
+        MountPoint[1] = L':';
+        MountPoint[2] = L'\0';
+        volpath_mount_dotest(MemfsDisk, 0, MountPoint);
+
         WCHAR DirBuf[MAX_PATH];
         int DirBufLen;
         GetTestDirectory(DirBuf);

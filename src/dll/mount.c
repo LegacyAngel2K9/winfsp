@@ -123,6 +123,8 @@ static NTSTATUS FspMountSet_DriveViaMountmgr(FSP_MOUNT_DESC *Desc)
      * Native Windows ISO mounting expects the containing volume to be registered
      * with the Mount Manager. Try that path for ordinary drive-letter mounts and
      * let the caller fall back to DefineDosDevice when MountMgr is unavailable.
+     * MountMgr also keeps elevated sample mounts visible to non-elevated Explorer
+     * windows and virtualized shells that do not share the caller's DOS devices.
      */
     if (FspMountIsNetworkVolumeName(Desc->VolumeName))
         return STATUS_NETWORK_ACCESS_DENIED;
