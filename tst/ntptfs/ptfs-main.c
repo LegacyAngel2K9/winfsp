@@ -85,8 +85,8 @@ static NTSTATUS SvcStart(FSP_SERVICE *Service, ULONG argc, PWSTR *argv)
 
     wchar_t **argp, **arge;
     PWSTR RootPath = 0;
-    ULONG FileInfoTimeout = INFINITE;
-    ULONG FsAttributeMask = 0;
+    ULONG FileInfoTimeout = 1000;
+    ULONG FsAttributeMask = PtfsFlushAndPurgeOnCleanup;
     PWSTR VolumePrefix = 0;
     PWSTR MountPoint = 0;
     PWSTR OptionString = 0;
@@ -132,6 +132,8 @@ static NTSTATUS SvcStart(FSP_SERVICE *Service, ULONG argc, PWSTR *argv)
                 FsAttributeMask |= PtfsWslFeatures;
             else if (0 == _wcsicmp(L"FlushAndPurgeOnCleanup", OptionString))
                 FsAttributeMask |= PtfsFlushAndPurgeOnCleanup;
+            else if (0 == _wcsicmp(L"NoFlushAndPurgeOnCleanup", OptionString))
+                FsAttributeMask &= ~PtfsFlushAndPurgeOnCleanup;
             else if (0 == _wcsicmp(L"SetAllocationSizeOnCleanup", OptionString))
                 FsAttributeMask |= PtfsSetAllocationSizeOnCleanup;
             else
@@ -249,12 +251,13 @@ usage:
         "options:\n"
         "    -d DebugFlags       [-1: enable all debug logs]\n"
         "    -D DebugLogFile     [file path; use - for stderr]\n"
-        "    -t FileInfoTimeout  [millis]\n"
+        "    -t FileInfoTimeout  [millis; default: 1000]\n"
         "    -o ExtraFeatures    [extra Windows file system features]\n"
         "        -o ReparsePoints\n"
         "        -o NamedStreams\n"
         "        -o ExtendedAttributes\n"
         "        -o WslFeatures\n"
+        "        -o NoFlushAndPurgeOnCleanup\n"
         "    -u \\Server\\Share    [UNC prefix (single backslash)]\n"
         "    -p Directory        [directory to expose as pass through file system]\n"
         "    -m MountPoint       [X:|*|directory]\n";
