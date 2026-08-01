@@ -158,6 +158,11 @@ enum
     RequestProcess                      = 3,
 };
 
+static inline ULONG FspFsvolFileInfoNumberOfLinks(const FSP_FSCTL_FILE_INFO *FileInfo)
+{
+    return 0 != FileInfo->HardLinks ? FileInfo->HardLinks : 1;
+}
+
 static NTSTATUS FspFsvolQueryAllInformation(PFILE_OBJECT FileObject,
     PVOID *PBuffer, PVOID BufferEnd,
     const FSP_FSCTL_FILE_INFO *FileInfo)
@@ -188,7 +193,7 @@ static NTSTATUS FspFsvolQueryAllInformation(PFILE_OBJECT FileObject,
 
     Info->StandardInformation.AllocationSize.QuadPart = FileInfo->AllocationSize;
     Info->StandardInformation.EndOfFile.QuadPart = FileInfo->FileSize;
-    Info->StandardInformation.NumberOfLinks = 1;
+    Info->StandardInformation.NumberOfLinks = FspFsvolFileInfoNumberOfLinks(FileInfo);
     Info->StandardInformation.DeletePending = DeletePending || FileObject->DeletePending;
     Info->StandardInformation.Directory = FileNode->IsDirectory;
 
@@ -425,7 +430,7 @@ static NTSTATUS FspFsvolQueryStandardInformation(PFILE_OBJECT FileObject,
 
     Info->AllocationSize.QuadPart = FileInfo->AllocationSize;
     Info->EndOfFile.QuadPart = FileInfo->FileSize;
-    Info->NumberOfLinks = 1;
+    Info->NumberOfLinks = FspFsvolFileInfoNumberOfLinks(FileInfo);
     Info->DeletePending = DeletePending || FileObject->DeletePending;
     Info->Directory = FileNode->IsDirectory;
 
@@ -461,7 +466,7 @@ static NTSTATUS FspFsvolQueryStatBaseInformation(PFILE_OBJECT FileObject,
     Info->FileAttributes = 0 != FileInfo->FileAttributes ?
         FileInfo->FileAttributes : FILE_ATTRIBUTE_NORMAL;
     Info->ReparseTag = FileInfo->ReparseTag;
-    Info->NumberOfLinks = 1;
+    Info->NumberOfLinks = FspFsvolFileInfoNumberOfLinks(FileInfo);
 
     *PBuffer = (PVOID)(Info + 1);
 
@@ -495,7 +500,7 @@ static NTSTATUS FspFsvolQueryStatLxBaseInformation(PFILE_OBJECT FileObject,
     Info->FileAttributes = 0 != FileInfo->FileAttributes ?
         FileInfo->FileAttributes : FILE_ATTRIBUTE_NORMAL;
     Info->ReparseTag = FileInfo->ReparseTag;
-    Info->NumberOfLinks = 1;
+    Info->NumberOfLinks = FspFsvolFileInfoNumberOfLinks(FileInfo);
 
     *PBuffer = (PVOID)(Info + 1);
 

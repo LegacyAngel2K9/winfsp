@@ -539,7 +539,7 @@ static NTSTATUS fsp_fuse_intf_GetFileInfoFunnel(FSP_FILE_SYSTEM *FileSystem,
     FspPosixUnixTimeToFileTime((void *)&stbuf.st_ctim, &FileInfo->ChangeTime);
     FileInfo->IndexNumber = stbuf.st_ino;
 
-    FileInfo->HardLinks = 0;
+    FileInfo->HardLinks = 0 != stbuf.st_nlink ? stbuf.st_nlink : 1;
     FileInfo->EaSize = 0;
 
     return STATUS_SUCCESS;

@@ -287,7 +287,7 @@ typedef struct
     UINT64 LastWriteTime;
     UINT64 ChangeTime;
     UINT64 IndexNumber;
-    UINT32 HardLinks;                   /* unimplemented: set to 0 */
+    UINT32 HardLinks;                   /* 0 means 1 */
     UINT32 EaSize;
 } FSP_FSCTL_FILE_INFO;
 FSP_FSCTL_STATIC_ASSERT(72 == sizeof(FSP_FSCTL_FILE_INFO),
