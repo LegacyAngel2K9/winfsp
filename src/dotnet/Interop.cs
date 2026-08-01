@@ -86,7 +86,8 @@ namespace Fsp.Interop
         internal UInt32 StreamInfoTimeout;
         internal UInt32 EaTimeout;
         internal UInt32 FsextControlCode;
-        internal unsafe fixed UInt32 Reserved32[1];
+        internal UInt16 ReadAheadGranularity;
+        internal UInt16 DirtyPageThreshold;
         internal unsafe fixed UInt64 Reserved64[2];
 
         internal unsafe String GetPrefix()

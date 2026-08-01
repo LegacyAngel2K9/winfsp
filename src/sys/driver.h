@@ -608,6 +608,8 @@ NTSTATUS FspLockUserBuffer(PIRP Irp, ULONG Length, LOCK_OPERATION Operation);
 NTSTATUS FspMapLockedPagesInUserMode(PMDL Mdl, PVOID *PAddress, ULONG ExtraPriorityFlags);
 NTSTATUS FspCcInitializeCacheMap(PFILE_OBJECT FileObject, PCC_FILE_SIZES FileSizes,
     BOOLEAN PinAccess, PCACHE_MANAGER_CALLBACKS Callbacks, PVOID CallbackContext);
+NTSTATUS FspCcSetReadAheadGranularity(PFILE_OBJECT FileObject, ULONG Granularity);
+NTSTATUS FspCcSetDirtyPageThreshold(PFILE_OBJECT FileObject, ULONG DirtyPageThreshold);
 NTSTATUS FspCcSetFileSizes(PFILE_OBJECT FileObject, PCC_FILE_SIZES FileSizes);
 NTSTATUS FspCcCopyRead(PFILE_OBJECT FileObject, PLARGE_INTEGER FileOffset, ULONG Length,
     BOOLEAN Wait, PVOID Buffer, PIO_STATUS_BLOCK IoStatus);
@@ -1529,6 +1531,29 @@ VOID FspDeviceGlobalUnlock(VOID)
     STATUS_VOLUME_DISMOUNTED
     //(FILE_DEVICE_DISK_FILE_SYSTEM == (DeviceObject)->DeviceType ?\
     //    STATUS_VOLUME_DISMOUNTED : STATUS_DEVICE_NOT_CONNECTED)
+static inline
+NTSTATUS FspFsvolDeviceSetCacheMapParameters(PDEVICE_OBJECT DeviceObject, PFILE_OBJECT FileObject)
+{
+    FSP_FSCTL_VOLUME_PARAMS *VolumeParams = &FspFsvolDeviceExtension(DeviceObject)->VolumeParams;
+    NTSTATUS Result;
+
+    if (0 != VolumeParams->ReadAheadGranularity)
+    {
+        Result = FspCcSetReadAheadGranularity(FileObject,
+            (ULONG)VolumeParams->ReadAheadGranularity * PAGE_SIZE);
+        if (!NT_SUCCESS(Result))
+            return Result;
+    }
+
+    if (0 != VolumeParams->DirtyPageThreshold)
+    {
+        Result = FspCcSetDirtyPageThreshold(FileObject, VolumeParams->DirtyPageThreshold);
+        if (!NT_SUCCESS(Result))
+            return Result;
+    }
+
+    return STATUS_SUCCESS;
+}
 
 /* fsext */
 FSP_FSEXT_PROVIDER *FspFsextProvider(UINT32 FsextControlCode, PNTSTATUS PLoadResult);

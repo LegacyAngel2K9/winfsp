@@ -308,6 +308,13 @@ static NTSTATUS FspFsvolWriteCached(
             FspFileNodeRelease(FileNode, Main);
             return Result;
         }
+
+        Result = FspFsvolDeviceSetCacheMapParameters(FsvolDeviceObject, FileObject);
+        if (!NT_SUCCESS(Result))
+        {
+            FspFileNodeRelease(FileNode, Main);
+            return Result;
+        }
     }
 
     /* should we defer the write? */

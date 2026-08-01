@@ -69,6 +69,16 @@ static WORKER_THREAD_ROUTINE FspVolumeNotifyWork;
 NTSTATUS FspVolumeWork(
     PDEVICE_OBJECT FsvolDeviceObject, PIRP Irp, PIO_STACK_LOCATION IrpSp);
 
+static inline UINT16 FspVolumeRoundReadAheadGranularity(UINT16 ReadAheadGranularity)
+{
+    UINT16 Rounded = 1;
+
+    while (Rounded < ReadAheadGranularity && Rounded < 0x8000)
+        Rounded <<= 1;
+
+    return Rounded;
+}
+
 #ifdef ALLOC_PRAGMA
 #pragma alloc_text(PAGE, FspVolumeCreate)
 #pragma alloc_text(PAGE, FspVolumeCreateNoLock)
@@ -264,6 +274,9 @@ static NTSTATUS FspVolumeCreateNoLock(
     VolumeParams.SecurityTimeoutValid = 1;
     VolumeParams.StreamInfoTimeoutValid = 1;
     VolumeParams.EaTimeoutValid = 1;
+    if (0 != VolumeParams.ReadAheadGranularity)
+        VolumeParams.ReadAheadGranularity =
+            FspVolumeRoundReadAheadGranularity(VolumeParams.ReadAheadGranularity);
     if (FILE_DEVICE_NETWORK_FILE_SYSTEM == FsctlDeviceObject->DeviceType)
     {
         VolumeParams.Prefix[sizeof VolumeParams.Prefix / sizeof(WCHAR) - 1] = L'\0';

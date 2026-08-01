@@ -207,6 +207,22 @@ namespace Fsp
             }
         }
         /// <summary>
+        /// Gets or sets the Cache Manager read-ahead granularity in pages.
+        /// </summary>
+        public UInt16 ReadAheadGranularity
+        {
+            get { return _VolumeParams.ReadAheadGranularity; }
+            set { _VolumeParams.ReadAheadGranularity = value; }
+        }
+        /// <summary>
+        /// Gets or sets the Cache Manager dirty page threshold in pages.
+        /// </summary>
+        public UInt16 DirtyPageThreshold
+        {
+            get { return _VolumeParams.DirtyPageThreshold; }
+            set { _VolumeParams.DirtyPageThreshold = value; }
+        }
+        /// <summary>
         /// Gets or sets a value that determines whether the file system is case sensitive.
         /// </summary>
         public Boolean CaseSensitiveSearch

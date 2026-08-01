@@ -97,6 +97,8 @@ static struct fuse_opt fsp_fuse_core_opts[] =
     FSP_FUSE_CORE_OPT("EaTimeout=%d", VolumeParams.EaTimeout, 0),
     FSP_FUSE_CORE_OPT("VolumeInfoTimeout=", set_VolumeInfoTimeout, 1),
     FSP_FUSE_CORE_OPT("VolumeInfoTimeout=%d", VolumeParams.VolumeInfoTimeout, 0),
+    FSP_FUSE_CORE_OPT("ReadAheadGranularity=%hu", VolumeParams.ReadAheadGranularity, 0),
+    FSP_FUSE_CORE_OPT("DirtyPageThreshold=%hu", VolumeParams.DirtyPageThreshold, 0),
     FSP_FUSE_CORE_OPT("KeepFileCache=", set_KeepFileCache, 1),
     FSP_FUSE_CORE_OPT("FlushOnCleanup=", set_FlushOnCleanup, 1),
     FSP_FUSE_CORE_OPT("LegacyUnlinkRename=", set_LegacyUnlinkRename, 1),
@@ -651,6 +653,8 @@ static int fsp_fuse_core_opt_proc(void *opt_data0, const char *arg, int key,
             "    -o DirInfoTimeout=N        directory info timeout (millis)\n"
             "    -o EaTimeout=N             extended attribute timeout (millis)\n"
             "    -o VolumeInfoTimeout=N     volume info timeout (millis)\n"
+            "    -o ReadAheadGranularity=N  read-ahead granularity (pages)\n"
+            "    -o DirtyPageThreshold=N    dirty page threshold (pages)\n"
             "    -o KeepFileCache           do not discard cache when files are closed\n"
             "    -o LegacyUnlinkRename      do not support new POSIX unlink/rename\n"
             "    -o ThreadCount             number of file system dispatcher threads\n"
