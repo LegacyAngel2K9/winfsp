@@ -426,6 +426,9 @@ VOID MemfsFileNodeDeleteEaMap(MEMFS_FILE_NODE *FileNode)
 #endif
 
 static inline
+VOID MemfsFileNodeDereference(MEMFS_FILE_NODE *FileNode);
+
+static inline
 VOID MemfsFileNodeDelete(MEMFS_FILE_NODE *FileNode)
 {
 #if defined(MEMFS_EA)
@@ -436,6 +439,10 @@ VOID MemfsFileNodeDelete(MEMFS_FILE_NODE *FileNode)
 #endif
     LargeHeapFree(FileNode->FileData);
     free(FileNode->FileSecurity);
+#if defined(MEMFS_NAMED_STREAMS)
+    if (0 != FileNode->MainFileNode)
+        MemfsFileNodeDereference(FileNode->MainFileNode);
+#endif
     free(FileNode);
 }
 
@@ -628,7 +635,7 @@ static inline
 VOID MemfsFileNodeMapDelete(MEMFS_FILE_NODE_MAP *FileNodeMap)
 {
     for (MEMFS_FILE_NODE_MAP::iterator p = FileNodeMap->begin(), q = FileNodeMap->end(); p != q; ++p)
-        MemfsFileNodeDelete(p->second);
+        MemfsFileNodeDereference(p->second);
 
     delete FileNodeMap;
 }
@@ -1175,6 +1182,8 @@ static NTSTATUS Create(FSP_FILE_SYSTEM *FileSystem,
 
 #if defined(MEMFS_NAMED_STREAMS)
     FileNode->MainFileNode = MemfsFileNodeMapGetMain(Memfs->FileNodeMap, FileName);
+    if (0 != FileNode->MainFileNode)
+        MemfsFileNodeReference(FileNode->MainFileNode);
 #endif
 
     FileNode->FileInfo.FileAttributes = (FileAttributes & FILE_ATTRIBUTE_DIRECTORY) ?

@@ -36,6 +36,8 @@ enum
     AirfsFlushAndPurgeOnCleanup = 0x40000000,
 };
 
+inline void DereferenceNode(AIRFS_ Airfs, NODE_ Node);
+
 //////////////////////////////////////////////////////////////////////
 
 NTSTATUS CreateNode(AIRFS_ Airfs, PWSTR Name, NODE_ *PNode)
@@ -77,6 +79,7 @@ NTSTATUS CreateNode(AIRFS_ Airfs, PWSTR Name, NODE_ *PNode)
 
 void DeleteNode(AIRFS_ Airfs, NODE_ Node)
 {
+    NODE_ Parent = Node->IsAStream ? Node->Parent : 0;
     NODE_ Block;
     while (Block = Node->FileBlocks)
     {
@@ -88,6 +91,8 @@ void DeleteNode(AIRFS_ Airfs, NODE_ Node)
     StorageFree(Airfs, Node->ReparseData);
     StorageFree(Airfs, Node->SecurityDescriptor);
     StorageFree(Airfs, Node);
+    if (Parent)
+        DereferenceNode(Airfs, Parent);
 }
 
 //////////////////////////////////////////////////////////////////////
@@ -249,6 +254,8 @@ void InsertNode(AIRFS_ Airfs, NODE_ Parent, NODE_ Node)
     else                 Attach(Parent->Children , Node, NodeCmp, key);
 
     Node->Parent = Parent;
+    if (Node->IsAStream)
+        ReferenceNode(Parent);
     ReferenceNode(Node);
     TouchNode(Parent);
 }
@@ -601,10 +608,7 @@ void ApiCleanup(FSP_FILE_SYSTEM *FileSystem, PVOID Node0, PWSTR Name, ULONG Flag
     {
         NODE_ Stream;
         while (Stream = Node->Streams)
-        {
-            Detach(Node->Streams, Stream);
-            DeleteNode(Airfs, Stream);
-        }
+            RemoveNode(Airfs, Stream);
         RemoveNode(Airfs, Node);
     }
 }
