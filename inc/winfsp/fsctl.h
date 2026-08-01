@@ -740,6 +740,9 @@ void __iso_volatile_store64(volatile __int64 *, __int64);
 #define FSP_INTERLOCKED__LOAD64(p)      (*(p))
 #define FSP_INTERLOCKED__STORE64(p,v)   (*(p) = (v))
 #endif
+#if (defined(_M_X64) || defined(_M_IX86)) && !defined(_ReadWriteBarrier)
+void _ReadWriteBarrier(void);
+#endif
 static inline INT32 FspInterlockedLoad32(INT32 volatile *p)
 {
 #if defined(_M_ARM64)
@@ -749,7 +752,6 @@ static inline INT32 FspInterlockedLoad32(INT32 volatile *p)
     return v;
 
 #elif defined(_M_X64) || defined(_M_IX86)
-    void _ReadWriteBarrier(void);
     INT32 v = FSP_INTERLOCKED__LOAD32(p);
     _ReadWriteBarrier();
     return v;
@@ -779,13 +781,11 @@ static inline VOID *FspInterlockedLoadPointer(VOID *volatile *p)
     return v;
 
 #elif defined(_M_X64)
-    void _ReadWriteBarrier(void);
     VOID *v = (VOID *)FSP_INTERLOCKED__LOAD64((__int64 volatile *)(p));
     _ReadWriteBarrier();
     return v;
 
 #elif defined(_M_IX86)
-    void _ReadWriteBarrier(void);
     VOID *v = (VOID *)FSP_INTERLOCKED__LOAD32((__int32 volatile *)(p));
     _ReadWriteBarrier();
     return v;
