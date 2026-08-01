@@ -7,7 +7,7 @@
 
 - [FIX] Fixes vulnerability CVE-2026-7162 discovered by Tay Kiat Loong (GitHub: @Owl4444) and uhg (GitHub: @UltimateHG).
 
-- [FIX] Fixes deadlock during cached writes under memory pressure. See PR #677 for discussion.
+- [FIX] Fixes deadlock during cached writes under memory pressure. See PR #677 and GitHub issue #620 for discussion.
 
 - [FIX] Fixes deadlock in the file system notification mechanism with concurrent renames. See fix PR #669 by @yeonsh and test PR #672 by @Maksim-Isakau.
 
