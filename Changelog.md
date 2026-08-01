@@ -41,6 +41,8 @@
 
 - [FIX] Teach the passthrough sample to proxy backing reparse points so junction/symlink chains can be resolved by Windows. See GitHub issue #518.
 
+- [FIX] Sign the installer custom action DLL before embedding it in the MSI to satisfy Windows Smart App Control code integrity policy. See GitHub issue #527.
+
 
 ## v2.2B2 (2026 Beta2)
 

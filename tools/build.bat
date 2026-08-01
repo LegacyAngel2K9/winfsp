@@ -95,7 +95,8 @@ if X%SignedPackage%==X (
         launcher-a64.exe launcher-x64.exe launcher-x86.exe^
         launchctl-a64.exe launchctl-x64.exe launchctl-x86.exe^
         fsptool-a64.exe fsptool-x64.exe fsptool-x86.exe^
-        memfs-a64.exe memfs-x64.exe memfs-x86.exe memfs-dotnet-msil.exe
+        memfs-a64.exe memfs-x64.exe memfs-x86.exe memfs-dotnet-msil.exe^
+        CustomActions.dll
     signtool sign /ac %CrossCert% /i %Issuer% /n %Subject% /fd sha256 /tr http://timestamp.digicert.com /td sha256 !signfiles!
     if errorlevel 1 set /a signfail=signfail+1
     popd
