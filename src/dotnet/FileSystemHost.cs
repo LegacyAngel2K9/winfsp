@@ -443,12 +443,16 @@ namespace Fsp
         /// <param name="MountPoint">
         /// The mount point for the new file system. A value of null means that
         /// the file system should use the next available drive letter counting
-        /// downwards from Z: as its mount point.
+        /// downwards from Z: as its mount point. Drive letter visibility is
+        /// controlled by the Windows DOS device namespace. A service-mounted
+        /// drive letter is normally visible to all interactive sessions; to
+        /// make a drive visible only to selected sessions create the drive
+        /// letter in each selected user's local DOS device namespace.
         /// </param>
         /// <param name="SecurityDescriptor">
         /// Security descriptor to use if mounting on (newly created) directory.
         /// A value of null means the directory should be created with default
-        /// security.
+        /// security. This parameter does not restrict drive letter visibility.
         /// </param>
         /// <param name="Synchronized">
         /// If true file system operations are synchronized using an exclusive lock.
@@ -471,7 +475,11 @@ namespace Fsp
         /// <param name="MountPoint">
         /// The mount point for the new file system. A value of null means that
         /// the file system should use the next available drive letter counting
-        /// downwards from Z: as its mount point.
+        /// downwards from Z: as its mount point. Drive letter visibility is
+        /// controlled by the Windows DOS device namespace. A service-mounted
+        /// drive letter is normally visible to all interactive sessions; to
+        /// make a drive visible only to selected sessions create the drive
+        /// letter in each selected user's local DOS device namespace.
         /// </param>
         /// <param name="ThreadCount">
         /// Number of threads to use to service file system requests. A value
@@ -480,7 +488,7 @@ namespace Fsp
         /// <param name="SecurityDescriptor">
         /// Security descriptor to use if mounting on (newly created) directory.
         /// A value of null means the directory should be created with default
-        /// security.
+        /// security. This parameter does not restrict drive letter visibility.
         /// </param>
         /// <param name="Synchronized">
         /// If true file system operations are synchronized using an exclusive lock.

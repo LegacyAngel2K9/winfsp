@@ -75,6 +75,8 @@
 
 - [FIX] Clarify independent directory info caching and expose `DirInfoTimeout` on the C++ file-system helper so directory metadata can be cached without enabling file data caching. See GitHub issue #665.
 
+- [DOC] Clarify that service-created drive letters are controlled by Windows DOS device namespaces and must be created per user session to be hidden from other users. See GitHub issue #675.
+
 
 ## v2.2B2 (2026 Beta2)
 

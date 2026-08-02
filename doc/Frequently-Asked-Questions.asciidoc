@@ -33,6 +33,13 @@ Can I share a WinFsp file system that has a UNC prefix with other computers?::
     No. A WinFsp UNC prefix such as `\\memfs64\share` is a local Network Provider/MUP name and is only resolved on the computer that hosts the WinFsp file system. To expose the file system over the network, create a disk file system without a UNC prefix and share the local drive or directory using the Windows Server service (`NetShareAdd`, `net share`, or equivalent).
 
 
+How do I make a drive letter mounted by a Windows service visible only to selected users?::
+
+    Drive letter visibility is controlled by the Windows DOS device namespace, not by the file system security descriptor. When a service creates `Z:` it normally creates a global drive letter that is visible to all interactive sessions.
++
+To show a drive letter only to selected users or sessions, create that drive letter in each selected user's local DOS device namespace. A service can do this by tracking logon/logoff or session-change events, starting or impersonating code in the target session, and calling `DefineDosDeviceW` there. The WinFsp mount security descriptor still controls directory mount point creation and file-system access checks, but it does not hide drive letters from other sessions. If hiding the drive letter is not required, prefer normal file-system access checks, a directory mount point with an appropriate security descriptor, or a local UNC prefix.
+
+
 Why is the DLL not installed in the Windows system directories?::
 
     It is true that this would make it convenient to load the DLL, because the Windows loader looks into the Windows system directories when it loads DLL's. However, in the opinion of the WinFsp author, software that does not ship with the OS should not be installing components in the system directories.
