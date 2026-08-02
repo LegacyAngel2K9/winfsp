@@ -347,6 +347,21 @@ namespace Fsp
             get { return 0 != (_VolumeParams.Flags & VolumeParams.DeviceControl); }
             set { _VolumeParams.Flags |= (value ? VolumeParams.DeviceControl : 0); }
         }
+        /// <summary>
+        /// Gets or sets a value that determines whether WinFsp defers user-mode access checks
+        /// to the file system implementation.
+        /// </summary>
+        public Boolean DeferAccessCheck
+        {
+            get { return 0 != (_VolumeParams.Flags & VolumeParams.UmDeferAccessCheck); }
+            set
+            {
+                if (value)
+                    _VolumeParams.Flags |= VolumeParams.UmDeferAccessCheck;
+                else
+                    _VolumeParams.Flags &= ~VolumeParams.UmDeferAccessCheck;
+            }
+        }
         public Boolean AllowOpenInKernelMode
         {
             get { return 0 != (_VolumeParams.Flags & VolumeParams.AllowOpenInKernelMode); }

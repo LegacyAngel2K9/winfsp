@@ -38,6 +38,10 @@ static NTSTATUS FspGetSecurityByName(FSP_FILE_SYSTEM *FileSystem,
     PWSTR FileName, PUINT32 PFileAttributes,
     PSECURITY_DESCRIPTOR *PSecurityDescriptor, SIZE_T *PSecurityDescriptorSize)
 {
+    if (0 == PSecurityDescriptorSize)
+        return FileSystem->Interface->GetSecurityByName(FileSystem,
+            FileName, PFileAttributes, 0, 0);
+
     for (;;)
     {
         NTSTATUS Result = FileSystem->Interface->GetSecurityByName(FileSystem,
@@ -59,6 +63,7 @@ FSP_API NTSTATUS FspAccessCheckEx(FSP_FILE_SYSTEM *FileSystem,
     PSECURITY_DESCRIPTOR *PSecurityDescriptor)
 {
     BOOLEAN CheckParentDirectory, CheckMainFile;
+    BOOLEAN DeferAccessCheck;
 
     CheckParentDirectory = CheckMainFile = FALSE;
     if (CheckParentOrMain)
@@ -80,6 +85,7 @@ FSP_API NTSTATUS FspAccessCheckEx(FSP_FILE_SYSTEM *FileSystem,
         L'\\' == ((PWSTR)Request->Buffer)[0] && L'\0' == ((PWSTR)Request->Buffer)[1])
         return STATUS_INVALID_PARAMETER;
 
+    DeferAccessCheck = FileSystem->UmDeferAccessCheck && Request->Req.Create.UserMode;
     if (0 == FileSystem->Interface->GetSecurityByName ||
         (!Request->Req.Create.UserMode && 0 == PSecurityDescriptor))
     {
@@ -111,12 +117,16 @@ FSP_API NTSTATUS FspAccessCheckEx(FSP_FILE_SYSTEM *FileSystem,
     else
         FileName = (PWSTR)Request->Buffer;
 
-    SecurityDescriptorSize = 1024;
-    SecurityDescriptor = MemAlloc(SecurityDescriptorSize);
-    if (0 == SecurityDescriptor)
+    SecurityDescriptorSize = 0;
+    if (!DeferAccessCheck)
     {
-        Result = STATUS_INSUFFICIENT_RESOURCES;
-        goto exit;
+        SecurityDescriptorSize = 1024;
+        SecurityDescriptor = MemAlloc(SecurityDescriptorSize);
+        if (0 == SecurityDescriptor)
+        {
+            Result = STATUS_INSUFFICIENT_RESOURCES;
+            goto exit;
+        }
     }
 
     if (Request->Req.Create.UserMode &&
@@ -138,7 +148,8 @@ FSP_API NTSTATUS FspAccessCheckEx(FSP_FILE_SYSTEM *FileSystem,
 
             FileAttributes = 0;
             Result = FspGetSecurityByName(FileSystem, Prefix, &FileAttributes,
-                &SecurityDescriptor, &SecurityDescriptorSize);
+                DeferAccessCheck ? 0 : &SecurityDescriptor,
+                DeferAccessCheck ? 0 : &SecurityDescriptorSize);
 
             /*
              * We check to see if this is a reparse point and then compute the ReparsePointIndex
@@ -195,7 +206,8 @@ FSP_API NTSTATUS FspAccessCheckEx(FSP_FILE_SYSTEM *FileSystem,
 
     FileAttributes = 0;
     Result = FspGetSecurityByName(FileSystem, FileName, &FileAttributes,
-        &SecurityDescriptor, &SecurityDescriptorSize);
+        DeferAccessCheck ? 0 : &SecurityDescriptor,
+        DeferAccessCheck ? 0 : &SecurityDescriptorSize);
     if (!NT_SUCCESS(Result) || STATUS_REPARSE == Result)
         goto exit;
 

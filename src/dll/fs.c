@@ -162,6 +162,7 @@ FSP_API NTSTATUS FspFileSystemCreate(PWSTR DevicePath,
     FileSystem->UmFileContextIsUserContext2 = !!VolumeParams->UmFileContextIsUserContext2;
     FileSystem->UmFileContextIsFullContext = !!VolumeParams->UmFileContextIsFullContext;
     FileSystem->UmNoReparsePointsDirCheck = VolumeParams->UmNoReparsePointsDirCheck;
+    FileSystem->UmDeferAccessCheck = VolumeParams->UmDeferAccessCheck;
     FileSystem->AllowRelSymlinksAcrossFileSystem =
         VolumeParams->AllowRelSymlinksAcrossFileSystem;
 

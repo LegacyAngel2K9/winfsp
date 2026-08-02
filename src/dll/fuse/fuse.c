@@ -107,6 +107,7 @@ static struct fuse_opt fsp_fuse_core_opts[] =
     FSP_FUSE_CORE_OPT("LegacyUnlinkRename=", set_LegacyUnlinkRename, 1),
     FSP_FUSE_CORE_OPT("AllowRelSymlinksAcrossFileSystem", set_AllowRelSymlinksAcrossFileSystem, 1),
     FSP_FUSE_CORE_OPT("WslFeatures", set_WslFeatures, 1),
+    FSP_FUSE_CORE_OPT("defer_permissions", set_defer_permissions, 1),
     FSP_FUSE_CORE_OPT("ThreadCount=%u", ThreadCount, 0),
     FUSE_OPT_KEY("UNC=", 'U'),
     FUSE_OPT_KEY("--UNC=", 'U'),
@@ -679,6 +680,7 @@ static int fsp_fuse_core_opt_proc(void *opt_data0, const char *arg, int key,
             "    -o UserOwner               use caller user as file owner\n"
             "    -o uidmap=UID:SID[;...]    explicit UID <-> SID map (max 8 entries)\n"
             "    -o uidmap=ad               use AD uidNumber/gidNumber attributes\n"
+            "    -o defer_permissions        let the FUSE file system check access\n"
             );
         opt_data->help = 1;
         return 1;
@@ -905,6 +907,8 @@ FSP_FUSE_API struct fuse *fsp_fuse_new(struct fsp_fuse_env *env,
         opt_data.VolumeParams.AllowRelSymlinksAcrossFileSystem = TRUE;
     if (opt_data.set_WslFeatures)
         opt_data.VolumeParams.WslFeatures = TRUE;
+    if (opt_data.set_defer_permissions)
+        opt_data.VolumeParams.UmDeferAccessCheck = TRUE;
     if (FIELD_OFFSET(struct fuse_operations, link) + sizeof ops->link <= opsize &&
         0 != ops->link)
         opt_data.VolumeParams.HardLinks = TRUE;

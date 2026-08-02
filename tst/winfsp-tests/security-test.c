@@ -330,9 +330,58 @@ void security_stress_meta_test(void)
     }
 }
 
+static NTSTATUS defer_access_check_GetSecurityByName(FSP_FILE_SYSTEM *FileSystem,
+    PWSTR FileName, PUINT32 PFileAttributes,
+    PSECURITY_DESCRIPTOR SecurityDescriptor, SIZE_T *PSecurityDescriptorSize)
+{
+    ASSERT(0 == SecurityDescriptor);
+    ASSERT(0 == PSecurityDescriptorSize);
+
+    if (0 != PFileAttributes)
+        *PFileAttributes =
+            L'\\' == FileName[0] && L'\0' == FileName[1] ?
+                FILE_ATTRIBUTE_DIRECTORY : FILE_ATTRIBUTE_ARCHIVE;
+
+    return STATUS_SUCCESS;
+}
+
+void defer_access_check_test(void)
+{
+    FSP_FILE_SYSTEM_INTERFACE Interface = { 0 };
+    FSP_FILE_SYSTEM FileSystem = { 0 };
+    UINT8 RequestBuf[sizeof(FSP_FSCTL_TRANSACT_REQ) + 64] = { 0 };
+    FSP_FSCTL_TRANSACT_REQ *Request = (PVOID)RequestBuf;
+    PSECURITY_DESCRIPTOR SecurityDescriptor = (PVOID)(UINT_PTR)1;
+    UINT32 GrantedAccess = 0;
+    NTSTATUS Result;
+
+    Interface.GetSecurityByName = defer_access_check_GetSecurityByName;
+    FileSystem.Interface = &Interface;
+    FileSystem.UmDeferAccessCheck = TRUE;
+
+    Request->Kind = FspFsctlTransactCreateKind;
+    Request->Size = sizeof RequestBuf;
+    Request->Req.Create.UserMode = TRUE;
+    wcscpy_s((PWSTR)Request->Buffer, 32, L"\\file0");
+
+    Result = FspAccessCheckEx(&FileSystem, Request, FALSE, TRUE,
+        FILE_GENERIC_READ | FILE_GENERIC_WRITE,
+        &GrantedAccess, &SecurityDescriptor);
+    ASSERT(STATUS_SUCCESS == Result);
+    ASSERT((FILE_GENERIC_READ | FILE_GENERIC_WRITE) == GrantedAccess);
+    ASSERT(0 == SecurityDescriptor);
+
+    GrantedAccess = 0;
+    Result = FspAccessCheckEx(&FileSystem, Request, FALSE, TRUE,
+        MAXIMUM_ALLOWED, &GrantedAccess, 0);
+    ASSERT(STATUS_SUCCESS == Result);
+    ASSERT(FspGetFileGenericMapping()->GenericAll == GrantedAccess);
+}
+
 void security_tests(void)
 {
     TEST(getsecurity_test);
+    TEST(defer_access_check_test);
     if (!OptFuseExternal)
         TEST(setsecurity_test);
     TEST_OPT(security_stress_meta_test);

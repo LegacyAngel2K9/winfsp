@@ -163,6 +163,13 @@ NTSTATUS FspFileSystemCallResolveReparsePoints(FSP_FILE_SYSTEM *FileSystem,
 }
 
 static inline
+BOOLEAN FspFileSystemDeferAccessCheck(FSP_FILE_SYSTEM *FileSystem,
+    FSP_FSCTL_TRANSACT_REQ *Request)
+{
+    return FileSystem->UmDeferAccessCheck && Request->Req.Create.UserMode;
+}
+
+static inline
 NTSTATUS FspFileSystemCreateCheck(FSP_FILE_SYSTEM *FileSystem,
     FSP_FSCTL_TRANSACT_REQ *Request, FSP_FSCTL_TRANSACT_RSP *Response,
     BOOLEAN AllowTraverseCheck, PUINT32 PGrantedAccess,
@@ -473,7 +480,9 @@ static NTSTATUS FspFileSystemOpCreate_FileCreate(FSP_FILE_SYSTEM *FileSystem,
     if (!NT_SUCCESS(Result) || STATUS_REPARSE == Result)
         return Result;
 
-    Result = FspCreateSecurityDescriptor(FileSystem, Request, ParentDescriptor, &OpenDescriptor);
+    Result = FspFileSystemDeferAccessCheck(FileSystem, Request) ?
+        STATUS_SUCCESS :
+        FspCreateSecurityDescriptor(FileSystem, Request, ParentDescriptor, &OpenDescriptor);
     FspDeleteSecurityDescriptor(ParentDescriptor, FspAccessCheckEx);
     if (!NT_SUCCESS(Result))
         return Result;
@@ -621,7 +630,9 @@ static NTSTATUS FspFileSystemOpCreate_FileOpenIf(FSP_FILE_SYSTEM *FileSystem,
         if (!NT_SUCCESS(Result) || STATUS_REPARSE == Result)
             return Result;
 
-        Result = FspCreateSecurityDescriptor(FileSystem, Request, ParentDescriptor, &OpenDescriptor);
+        Result = FspFileSystemDeferAccessCheck(FileSystem, Request) ?
+            STATUS_SUCCESS :
+            FspCreateSecurityDescriptor(FileSystem, Request, ParentDescriptor, &OpenDescriptor);
         FspDeleteSecurityDescriptor(ParentDescriptor, FspAccessCheckEx);
         if (!NT_SUCCESS(Result))
             return Result;
@@ -756,7 +767,10 @@ static NTSTATUS FspFileSystemOpCreate_FileOverwriteIf(FSP_FILE_SYSTEM *FileSyste
         if (!NT_SUCCESS(Result) || STATUS_REPARSE == Result)
             return Result;
 
-        Result = FspCreateSecurityDescriptor(FileSystem, Request, ParentDescriptor, &ObjectDescriptor);
+        ObjectDescriptor = 0;
+        Result = FspFileSystemDeferAccessCheck(FileSystem, Request) ?
+            STATUS_SUCCESS :
+            FspCreateSecurityDescriptor(FileSystem, Request, ParentDescriptor, &ObjectDescriptor);
         FspDeleteSecurityDescriptor(ParentDescriptor, FspAccessCheckEx);
         if (!NT_SUCCESS(Result))
             return Result;

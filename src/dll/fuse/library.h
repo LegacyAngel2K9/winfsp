@@ -259,7 +259,8 @@ struct fsp_fuse_core_opt_data
         set_FlushOnCleanup,
         set_LegacyUnlinkRename,
         set_AllowRelSymlinksAcrossFileSystem,
-        set_WslFeatures;
+        set_WslFeatures,
+        set_defer_permissions;
     unsigned ThreadCount;
     FSP_FSCTL_VOLUME_PARAMS VolumeParams;
     UINT16 VolumeLabelLength;

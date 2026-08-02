@@ -1164,8 +1164,9 @@ typedef struct _FSP_FILE_SYSTEM
     SRWLOCK OpGuardLock;
     BOOLEAN UmFileContextIsUserContext2, UmFileContextIsFullContext;
     UINT16 UmNoReparsePointsDirCheck:1;
+    UINT16 UmDeferAccessCheck:1;
     UINT16 AllowRelSymlinksAcrossFileSystem:1;
-    UINT16 UmReservedFlags:13;
+    UINT16 UmReservedFlags:12;
     UINT16 DispatcherStopping:1;
 } FSP_FILE_SYSTEM;
 FSP_FSCTL_STATIC_ASSERT(

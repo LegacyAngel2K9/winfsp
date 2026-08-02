@@ -51,6 +51,8 @@ namespace Fsp.Interop
         internal const UInt32 DeviceControl = 0x00008000;
         internal const UInt32 UmFileContextIsUserContext2 = 0x00010000;
         internal const UInt32 UmFileContextIsFullContext = 0x00020000;
+        internal const UInt32 UmNoReparsePointsDirCheck = 0x00040000;
+        internal const UInt32 UmDeferAccessCheck = 0x00080000;
         internal const UInt32 AllowOpenInKernelMode = 0x01000000;
         internal const UInt32 CasePreservedExtendedAttributes = 0x02000000;
         internal const UInt32 WslFeatures = 0x04000000;

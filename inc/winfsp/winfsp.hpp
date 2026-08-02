@@ -629,6 +629,14 @@ public:
     {
         _VolumeParams.ReparsePointsAccessCheck = !!ReparsePointsAccessCheck;
     }
+    BOOLEAN DeferAccessCheck()
+    {
+        return _VolumeParams.UmDeferAccessCheck;
+    }
+    VOID SetDeferAccessCheck(BOOLEAN DeferAccessCheck)
+    {
+        _VolumeParams.UmDeferAccessCheck = !!DeferAccessCheck;
+    }
     BOOLEAN NamedStreams()
     {
         return _VolumeParams.NamedStreams;

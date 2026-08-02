@@ -71,6 +71,8 @@
 
 - [FIX] Initialize WinFsp's IRP request context before dispatch so foreign `DriverContext` data on VHDX paging writes is not reused as a request. See GitHub issue #651.
 
+- [NEW] Add an opt-in user-mode access-check deferral flag and FUSE `-o defer_permissions` so file systems can enforce custom POSIX/AD permissions themselves. See GitHub issue #654.
+
 
 ## v2.2B2 (2026 Beta2)
 
