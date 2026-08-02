@@ -73,6 +73,8 @@
 
 - [NEW] Add an opt-in user-mode access-check deferral flag and FUSE `-o defer_permissions` so file systems can enforce custom POSIX/AD permissions themselves. See GitHub issue #654.
 
+- [FIX] Clarify independent directory info caching and expose `DirInfoTimeout` on the C++ file-system helper so directory metadata can be cached without enabling file data caching. See GitHub issue #665.
+
 
 ## v2.2B2 (2026 Beta2)
 

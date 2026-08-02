@@ -581,6 +581,16 @@ public:
     {
         _VolumeParams.FileInfoTimeout = FileInfoTimeout;
     }
+    UINT32 DirInfoTimeout()
+    {
+        return _VolumeParams.DirInfoTimeoutValid ?
+            _VolumeParams.DirInfoTimeout : _VolumeParams.FileInfoTimeout;
+    }
+    VOID SetDirInfoTimeout(UINT32 DirInfoTimeout)
+    {
+        _VolumeParams.DirInfoTimeoutValid = 1;
+        _VolumeParams.DirInfoTimeout = DirInfoTimeout;
+    }
     BOOLEAN CaseSensitiveSearch()
     {
         return _VolumeParams.CaseSensitiveSearch;

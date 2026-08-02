@@ -665,8 +665,8 @@ static int fsp_fuse_core_opt_proc(void *opt_data0, const char *arg, int key,
             );
         FspServiceLog(EVENTLOG_ERROR_TYPE, L""
             FSP_FUSE_LIBRARY_NAME " advanced options:\n"
-            "    -o FileInfoTimeout=N       metadata timeout (millis, -1 for data caching)\n"
-            "    -o DirInfoTimeout=N        directory info timeout (millis)\n"
+            "    -o FileInfoTimeout=N       file metadata timeout (millis, -1 for data caching)\n"
+            "    -o DirInfoTimeout=N        directory info cache timeout (millis, -1 for infinite)\n"
             "    -o EaTimeout=N             extended attribute timeout (millis)\n"
             "    -o VolumeInfoTimeout=N     volume info timeout (millis)\n"
             "    -o ReadAheadGranularity=N  read-ahead granularity (pages)\n"

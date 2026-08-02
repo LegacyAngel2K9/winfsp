@@ -205,7 +205,7 @@ enum
     UINT32 TransactTimeout;             /* DEPRECATED: (millis; 1 sec - 10 sec) */\
     UINT32 IrpTimeout;                  /* pending IRP timeout (millis; 1 min - 10 min) */\
     UINT32 IrpCapacity;                 /* maximum number of pending IRP's (100 - 1000)*/\
-    UINT32 FileInfoTimeout;             /* FileInfo/Security/VolumeInfo timeout (millis) */\
+    UINT32 FileInfoTimeout;             /* legacy/default metadata timeout (millis) */\
     /* FILE_FS_ATTRIBUTE_INFORMATION::FileSystemAttributes */\
     UINT32 CaseSensitiveSearch:1;       /* file system supports case-sensitive file names */\
     UINT32 CasePreservedNames:1;        /* file system preserves the case of file names */\
@@ -250,7 +250,7 @@ enum
     UINT32 EaTimeoutValid:1;            /* EaTimeout field is valid */\
     UINT32 KmAdditionalReservedFlags:27;\
     UINT32 VolumeInfoTimeout;           /* volume info timeout (millis); overrides FileInfoTimeout */\
-    UINT32 DirInfoTimeout;              /* dir info timeout (millis); overrides FileInfoTimeout */\
+    UINT32 DirInfoTimeout;              /* dir info cache timeout (millis); overrides FileInfoTimeout */\
     UINT32 SecurityTimeout;             /* security info timeout (millis); overrides FileInfoTimeout */\
     UINT32 StreamInfoTimeout;           /* stream info timeout (millis); overrides FileInfoTimeout */\
     UINT32 EaTimeout;                   /* EA timeout (millis); overrides FileInfoTimeout */\
