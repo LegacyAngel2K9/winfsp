@@ -26,6 +26,28 @@
 
 #include "winfsp-tests.h"
 
+static void volpath_assert_final_path(PWSTR FinalPath, PWSTR Prefix, PWSTR Suffix)
+{
+    WCHAR ExpectedFinalPath[MAX_PATH];
+
+    if (0 == Prefix)
+        return;
+
+    if (L'\\' == Prefix[0] && L'\\' == Prefix[1] &&
+        (L'.' == Prefix[2] || L'?' == Prefix[2]) && L'\\' == Prefix[3])
+        StringCbPrintfW(ExpectedFinalPath, sizeof ExpectedFinalPath,
+            L"\\\\?\\%s%s", Prefix + 4, Suffix);
+    else if (L'\\' == Prefix[0] && L'\\' == Prefix[1])
+        StringCbPrintfW(ExpectedFinalPath, sizeof ExpectedFinalPath,
+            L"\\\\?\\UNC\\%s%s", Prefix + 2, Suffix);
+    else
+        StringCbPrintfW(ExpectedFinalPath, sizeof ExpectedFinalPath,
+            L"\\\\?\\%s%s", Prefix, Suffix);
+
+    /* Elevated ShellExecute/AppInfo path lookup depends on this DOS path mapping. */
+    ASSERT(0 == mywcscmp(ExpectedFinalPath, -1, FinalPath, -1));
+}
+
 static void volpath_dotest(ULONG Flags, PWSTR Prefix)
 {
     void *memfs = memfs_start(Flags);
@@ -135,6 +157,8 @@ static void volpath_mount_dotest(ULONG Flags, PWSTR Prefix, PWSTR MountPoint)
     FinalResult = GetFinalPathNameByHandleW(
         Handle, FinalPath, MAX_PATH - 1, VOLUME_NAME_DOS | FILE_NAME_OPENED);
     ASSERT(0 != FinalResult && FinalResult < MAX_PATH);
+    if (MemfsNet != Flags)
+        volpath_assert_final_path(FinalPath, Prefix, L"\\dir1\\file2");
     CloseHandle(Handle);
 
     StringCbPrintfW(FilePath, sizeof FilePath, L"%s%s\\",
@@ -200,6 +224,8 @@ static void volpath_mount_dotest(ULONG Flags, PWSTR Prefix, PWSTR MountPoint)
     FinalResult = GetFinalPathNameByHandleW(
         Handle, FinalPath, MAX_PATH - 1, VOLUME_NAME_DOS | FILE_NAME_OPENED);
     ASSERT(0 != FinalResult && FinalResult < MAX_PATH);
+    if (MemfsNet != Flags)
+        volpath_assert_final_path(FinalPath, Prefix, L"\\dir1\\file2");
     CloseHandle(Handle);
 
     StringCbPrintfW(FilePath, sizeof FilePath, L"%s%s\\",

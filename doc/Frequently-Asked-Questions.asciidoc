@@ -14,6 +14,8 @@ I cannot run a program located in a WinFsp drive as administrator. I cannot run 
     When running an executable as administrator, the Windows OS seems to require that the name of the file system that is housing the executable is "NTFS". For example, the MEMFS file system with the command line `memfs-x64.exe -i -F NTFS -m X:` works.
 +
 Current MEMFS command-line samples report `NTFS` by default; pass `-F -MEMFS` only when you need the diagnostic `WinFsp-MEMFS` name.
++
+For directory mount points use Mount Manager syntax such as `memfs-x64.exe -F NTFS -m \\.\C:\memfs` instead of a plain directory path. Current WinFsp builds keep the mounted file-system volume identity visible to Windows Shell/AppInfo path lookups, so elevated execution can resolve files through the directory mount point as it does through a drive-letter mount.
 
 
 The installer reports that a running WinFsp service is blocking setup, but I never installed WinFsp.::

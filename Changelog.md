@@ -65,6 +65,8 @@
 
 - [FUSE] Support FUSE3 `lseek` through `FSCTL_QUERY_ALLOCATED_RANGES` for sparse-file range queries. See GitHub issue #632.
 
+- [TEST] Cover final DOS path resolution for MountMgr directory mounts and document the elevated execution requirements. See GitHub issue #641.
+
 
 ## v2.2B2 (2026 Beta2)
 
