@@ -48,6 +48,8 @@ WinFsp includes a Network Provider that integrates with Windows and can be used 
 
 For example, if a user uses the Windows Explorer to map `\\memfs64\share` to the `Z:` drive, the Network Provider will instruct the WinFsp.Launcher to start an instance of the memfs64 service with command line `-i -F NTFS -n 65536 -s 67108864 -u \\memfs64\share -m Z:`. When the user disconnects the `Z:` drive, the Network Provider will instruct the WinFsp.Launcher to stop the previously started instance of the memfs64 service.
 
+The UNC prefix configured with `-u` is a local Windows Network Provider/MUP name. It lets processes on the same computer access the file system as `\\memfs64\share`, and it can also be associated with a local drive letter, but it is not an SMB server export. To make a WinFsp file system available from other computers, create it as a disk file system without a UNC prefix and export the local drive or directory with the Windows Server service, for example by using `NetShareAdd`.
+
 == File System Credential Support
 
 Some file systems require credentials in order to allow access and be mounted. Such file systems must add a registry value `Credentials`:

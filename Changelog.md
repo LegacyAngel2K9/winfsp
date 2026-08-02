@@ -67,6 +67,8 @@
 
 - [TEST] Cover final DOS path resolution for MountMgr directory mounts and document the elevated execution requirements. See GitHub issue #641.
 
+- [DOC] Clarify that WinFsp UNC prefixes are local Network Provider names and that remote sharing must use a disk file system exported through the Windows Server service. See GitHub issue #650.
+
 
 ## v2.2B2 (2026 Beta2)
 
