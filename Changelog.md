@@ -77,6 +77,8 @@
 
 - [DOC] Clarify that service-created drive letters are controlled by Windows DOS device namespaces and must be created per user session to be hidden from other users. See GitHub issue #675.
 
+- [NEW] Add an opt-in persistent MountDev unique ID for Mount Manager mounts so reconnect-aware folder monitors can correlate a new volume instance with the prior one. See GitHub issue #678.
+
 
 ## v2.2B2 (2026 Beta2)
 

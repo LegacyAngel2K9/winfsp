@@ -573,6 +573,14 @@ public:
     {
         _VolumeParams.VolumeSerialNumber = VolumeSerialNumber;
     }
+    BOOLEAN MountDevPersistentUniqueId()
+    {
+        return _VolumeParams.MountDevPersistentUniqueId;
+    }
+    VOID SetMountDevPersistentUniqueId(BOOLEAN MountDevPersistentUniqueId)
+    {
+        _VolumeParams.MountDevPersistentUniqueId = !!MountDevPersistentUniqueId;
+    }
     UINT32 FileInfoTimeout()
     {
         return _VolumeParams.FileInfoTimeout;

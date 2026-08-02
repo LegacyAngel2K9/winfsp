@@ -68,6 +68,7 @@ namespace Fsp.Interop
         internal const UInt32 SecurityTimeoutValid = 0x00000004;
         internal const UInt32 StreamInfoTimeoutValid = 0x00000008;
         internal const UInt32 EaTimeoutValid = 0x00000010;
+        internal const UInt32 MountDevPersistentUniqueId = 0x00000020;
 
         internal UInt16 Version;
         internal UInt16 SectorSize;

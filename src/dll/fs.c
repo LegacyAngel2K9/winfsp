@@ -165,6 +165,7 @@ FSP_API NTSTATUS FspFileSystemCreate(PWSTR DevicePath,
     FileSystem->UmDeferAccessCheck = VolumeParams->UmDeferAccessCheck;
     FileSystem->AllowRelSymlinksAcrossFileSystem =
         VolumeParams->AllowRelSymlinksAcrossFileSystem;
+    FileSystem->MountDevPersistentUniqueId = VolumeParams->MountDevPersistentUniqueId;
 
     *PFileSystem = FileSystem;
 
@@ -204,6 +205,7 @@ NTSTATUS FspFileSystemSetMountPointEx2(FSP_FILE_SYSTEM *FileSystem, PWSTR MountP
     Desc.VolumeName = FileSystem->VolumeName;
     Desc.Security = SecurityDescriptor;
     Desc.AllowMountOnExistingDirectory = AllowMountOnExistingDirectory;
+    Desc.MountDevPersistentUniqueId = FileSystem->MountDevPersistentUniqueId;
 
     if (0 == MountPoint)
         MountPoint = L"*:";

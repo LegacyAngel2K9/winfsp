@@ -259,6 +259,7 @@ struct fsp_fuse_core_opt_data
         set_FlushOnCleanup,
         set_LegacyUnlinkRename,
         set_AllowRelSymlinksAcrossFileSystem,
+        set_MountDevPersistentUniqueId,
         set_WslFeatures,
         set_defer_permissions;
     unsigned ThreadCount;

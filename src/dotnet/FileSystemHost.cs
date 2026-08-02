@@ -120,6 +120,22 @@ namespace Fsp
             set { _VolumeParams.VolumeSerialNumber = value; }
         }
         /// <summary>
+        /// Gets or sets a value that determines whether Mount Manager mounts use a persistent
+        /// MountDev unique ID derived from FileSystemName, VolumeSerialNumber and
+        /// VolumeCreationTime.
+        /// </summary>
+        public Boolean MountDevPersistentUniqueId
+        {
+            get { return 0 != (_VolumeParams.AdditionalFlags & VolumeParams.MountDevPersistentUniqueId); }
+            set
+            {
+                if (value)
+                    _VolumeParams.AdditionalFlags |= VolumeParams.MountDevPersistentUniqueId;
+                else
+                    _VolumeParams.AdditionalFlags &= ~VolumeParams.MountDevPersistentUniqueId;
+            }
+        }
+        /// <summary>
         /// Gets or sets the file information timeout.
         /// </summary>
         public UInt32 FileInfoTimeout

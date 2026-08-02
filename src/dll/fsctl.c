@@ -119,11 +119,21 @@ exit:
 FSP_API NTSTATUS FspFsctlMakeMountdev(HANDLE VolumeHandle,
     BOOLEAN Persistent, GUID *UniqueId)
 {
+    return FspFsctlMakeMountdevEx(VolumeHandle, Persistent, Persistent, UniqueId);
+}
+
+FSP_API NTSTATUS FspFsctlMakeMountdevEx(HANDLE VolumeHandle,
+    BOOLEAN Persistent, BOOLEAN StableUniqueId, GUID *UniqueId)
+{
     DWORD Bytes;
+    FSP_FSCTL_MOUNTDEV_PARAMS Params;
+
+    Params.Persistent = !!Persistent;
+    Params.StableUniqueId = !!StableUniqueId;
 
     if (!DeviceIoControl(VolumeHandle,
         FSP_FSCTL_MOUNTDEV,
-        &Persistent, sizeof Persistent, UniqueId, sizeof *UniqueId,
+        &Params, sizeof Params, UniqueId, sizeof *UniqueId,
         &Bytes, 0))
         return FspNtStatusFromWin32(GetLastError());
 

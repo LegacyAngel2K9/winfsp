@@ -248,7 +248,8 @@ enum
     UINT32 SecurityTimeoutValid:1;      /* SecurityTimeout field is valid*/\
     UINT32 StreamInfoTimeoutValid:1;    /* StreamInfoTimeout field is valid */\
     UINT32 EaTimeoutValid:1;            /* EaTimeout field is valid */\
-    UINT32 KmAdditionalReservedFlags:27;\
+    UINT32 MountDevPersistentUniqueId:1;/* use stable MountDev unique id for MountMgr mounts */\
+    UINT32 KmAdditionalReservedFlags:26;\
     UINT32 VolumeInfoTimeout;           /* volume info timeout (millis); overrides FileInfoTimeout */\
     UINT32 DirInfoTimeout;              /* dir info cache timeout (millis); overrides FileInfoTimeout */\
     UINT32 SecurityTimeout;             /* security info timeout (millis); overrides FileInfoTimeout */\
@@ -693,6 +694,12 @@ static inline FSP_FSCTL_TRANSACT_RSP *FspFsctlTransactConsumeResponse(
     return NextResponse <= ResponseBufEnd ? (FSP_FSCTL_TRANSACT_RSP *)NextResponse : 0;
 }
 
+typedef struct
+{
+    BOOLEAN Persistent;                 /* do not purge MountMgr points on teardown */
+    BOOLEAN StableUniqueId;             /* derive MountDev unique id from volume params */
+} FSP_FSCTL_MOUNTDEV_PARAMS;
+
 #if !defined(_KERNEL_MODE)
 FSP_API NTSTATUS FspFsctlCreateVolume(PWSTR DevicePath,
     const FSP_FSCTL_VOLUME_PARAMS *VolumeParams,
@@ -700,6 +707,8 @@ FSP_API NTSTATUS FspFsctlCreateVolume(PWSTR DevicePath,
     PHANDLE PVolumeHandle);
 FSP_API NTSTATUS FspFsctlMakeMountdev(HANDLE VolumeHandle,
     BOOLEAN Persistent, GUID *UniqueId);
+FSP_API NTSTATUS FspFsctlMakeMountdevEx(HANDLE VolumeHandle,
+    BOOLEAN Persistent, BOOLEAN StableUniqueId, GUID *UniqueId);
 FSP_API NTSTATUS FspFsctlUseMountmgr(HANDLE VolumeHandle,
     PWSTR MountPoint);
 FSP_API NTSTATUS FspFsctlTransact(HANDLE VolumeHandle,
@@ -728,7 +737,8 @@ typedef struct
     PWSTR VolumeName;                   /* volume name returned by FspFsctlCreateVolume */
     PSECURITY_DESCRIPTOR Security;      /* optional: security descriptor for directories */
     UINT64 AllowMountOnExistingDirectory:1; /* allow directory mounts over existing directories */
-    UINT64 Reserved:63;                 /* reserved for future use */
+    UINT64 MountDevPersistentUniqueId:1;/* use stable MountDev unique id for MountMgr mounts */
+    UINT64 Reserved:62;                 /* reserved for future use */
     /* in/out */
     PWSTR MountPoint;                   /* FspMountSet sets drive in buffer when passed "*:" */
     HANDLE MountHandle;                 /* FspMountSet sets, FspMountRemove uses */

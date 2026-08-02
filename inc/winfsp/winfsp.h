@@ -1166,7 +1166,8 @@ typedef struct _FSP_FILE_SYSTEM
     UINT16 UmNoReparsePointsDirCheck:1;
     UINT16 UmDeferAccessCheck:1;
     UINT16 AllowRelSymlinksAcrossFileSystem:1;
-    UINT16 UmReservedFlags:12;
+    UINT16 MountDevPersistentUniqueId:1;
+    UINT16 UmReservedFlags:11;
     UINT16 DispatcherStopping:1;
 } FSP_FILE_SYSTEM;
 FSP_FSCTL_STATIC_ASSERT(
@@ -1231,7 +1232,10 @@ FSP_API VOID FspFileSystemDelete(FSP_FILE_SYSTEM *FileSystem);
  * by the Windows DOS device namespace. A service-mounted drive letter is normally visible
  * to all interactive sessions; to make a drive visible only to selected sessions create
  * the drive letter in each selected user's local DOS device namespace, for example by
- * running code in that session and calling DefineDosDeviceW.</li>
+ * running code in that session and calling DefineDosDeviceW. File systems that use Mount
+ * Manager mounting can set FSP_FSCTL_VOLUME_PARAMS::MountDevPersistentUniqueId together
+ * with stable FileSystemName, VolumeSerialNumber and VolumeCreationTime values to help
+ * applications correlate a reconnected volume with its prior instance.</li>
  * <li>Directories: They can be used as mount points for disk based file systems. They cannot
  * be used for network file systems. This is a limitation that Windows imposes on junctions.
  * The SecurityDescriptor parameter to FspFileSystemSetMountPointEx applies only to newly

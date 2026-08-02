@@ -94,7 +94,8 @@ static NTSTATUS FspMountSet_Directory(PWSTR VolumeName, PWSTR MountPoint,
     PSECURITY_DESCRIPTOR SecurityDescriptor, BOOLEAN AllowMountOnExistingDirectory,
     PHANDLE PMountHandle);
 static NTSTATUS FspMountRemove_Directory(PWSTR MountPoint, HANDLE MountHandle);
-static NTSTATUS FspMountSet_MountmgrDrive(HANDLE VolumeHandle, PWSTR VolumeName, PWSTR MountPoint);
+static NTSTATUS FspMountSet_MountmgrDrive(HANDLE VolumeHandle, PWSTR VolumeName, PWSTR MountPoint,
+    BOOLEAN MountDevPersistentUniqueId);
 static NTSTATUS FspMountRemove_MountmgrDrive(HANDLE VolumeHandle, PWSTR MountPoint);
 static BOOLEAN FspMountIsNetworkVolumeName(PWSTR VolumeName)
 {
@@ -132,7 +133,8 @@ static NTSTATUS FspMountSet_DriveViaMountmgr(FSP_MOUNT_DESC *Desc)
     memcpy(MountmgrMountPointBuf, L"\\\\.\\X:", sizeof MountmgrMountPointBuf);
     MountmgrMountPointBuf[4] = Desc->MountPoint[0];
 
-    Result = FspMountSet_MountmgrDrive(Desc->VolumeHandle, Desc->VolumeName, MountmgrMountPointBuf);
+    Result = FspMountSet_MountmgrDrive(Desc->VolumeHandle, Desc->VolumeName, MountmgrMountPointBuf,
+        !!Desc->MountDevPersistentUniqueId);
     if (!NT_SUCCESS(Result))
         return Result;
 
@@ -151,7 +153,8 @@ static NTSTATUS FspMountSet_DriveViaMountmgr(FSP_MOUNT_DESC *Desc)
     return STATUS_SUCCESS;
 }
 
-static NTSTATUS FspMountSet_MountmgrDrive(HANDLE VolumeHandle, PWSTR VolumeName, PWSTR MountPoint)
+static NTSTATUS FspMountSet_MountmgrDrive(HANDLE VolumeHandle, PWSTR VolumeName, PWSTR MountPoint,
+    BOOLEAN MountDevPersistentUniqueId)
 {
     if (FspMountUseMountmgrFromFSDValue)
         /* use MountManager from FSD and exit */
@@ -161,7 +164,7 @@ static NTSTATUS FspMountSet_MountmgrDrive(HANDLE VolumeHandle, PWSTR VolumeName,
     NTSTATUS Result;
 
     /* transform our volume into one that can be used by the MountManager */
-    Result = FspFsctlMakeMountdev(VolumeHandle, FALSE, &UniqueId);
+    Result = FspFsctlMakeMountdevEx(VolumeHandle, FALSE, MountDevPersistentUniqueId, &UniqueId);
     if (!NT_SUCCESS(Result))
         goto exit;
 
@@ -183,6 +186,7 @@ exit:
 
 static NTSTATUS FspMountSet_MountmgrDirectory(HANDLE VolumeHandle, PWSTR VolumeName, PWSTR MountPoint,
     PSECURITY_DESCRIPTOR SecurityDescriptor, BOOLEAN AllowMountOnExistingDirectory,
+    BOOLEAN MountDevPersistentUniqueId,
     PHANDLE PMountHandle)
 {
     GUID UniqueId;
@@ -211,7 +215,7 @@ static NTSTATUS FspMountSet_MountmgrDirectory(HANDLE VolumeHandle, PWSTR VolumeN
     }
 
     /* transform our volume into one that can be used by the MountManager */
-    Result = FspFsctlMakeMountdev(VolumeHandle, FALSE, &UniqueId);
+    Result = FspFsctlMakeMountdevEx(VolumeHandle, FALSE, MountDevPersistentUniqueId, &UniqueId);
     if (!NT_SUCCESS(Result))
         goto exit;
 
@@ -814,10 +818,12 @@ NTSTATUS FspMountSet_Internal(FSP_MOUNT_DESC *Desc)
         return STATUS_NO_SUCH_DEVICE;
     }
     else if (FspPathIsMountmgrDrive(Desc->MountPoint))
-        return FspMountSet_MountmgrDrive(Desc->VolumeHandle, Desc->VolumeName, Desc->MountPoint);
+        return FspMountSet_MountmgrDrive(Desc->VolumeHandle, Desc->VolumeName, Desc->MountPoint,
+            !!Desc->MountDevPersistentUniqueId);
     else if (FspPathIsMountmgrMountPoint(Desc->MountPoint))
         return FspMountSet_MountmgrDirectory(Desc->VolumeHandle, Desc->VolumeName, Desc->MountPoint,
-            Desc->Security, Desc->AllowMountOnExistingDirectory, &Desc->MountHandle);
+            Desc->Security, !!Desc->AllowMountOnExistingDirectory, !!Desc->MountDevPersistentUniqueId,
+            &Desc->MountHandle);
     else if (FspPathIsDrive(Desc->MountPoint))
     {
         NTSTATUS Result;
@@ -833,7 +839,7 @@ NTSTATUS FspMountSet_Internal(FSP_MOUNT_DESC *Desc)
     }
     else
         return FspMountSet_Directory(Desc->VolumeName, Desc->MountPoint, Desc->Security,
-            Desc->AllowMountOnExistingDirectory, &Desc->MountHandle);
+            !!Desc->AllowMountOnExistingDirectory, &Desc->MountHandle);
 }
 
 NTSTATUS FspMountRemove_Internal(FSP_MOUNT_DESC *Desc)

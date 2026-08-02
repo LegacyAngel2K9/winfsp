@@ -2282,7 +2282,10 @@ mounting) and otherwise fall back to the DefineDosDevice Windows API. Use the
 by the Windows DOS device namespace. A service-mounted drive letter is normally visible
 to all interactive sessions; to make a drive visible only to selected sessions create
 the drive letter in each selected user's local DOS device namespace, for example by
-running code in that session and calling DefineDosDeviceW.
+running code in that session and calling DefineDosDeviceW. File systems that use Mount
+Manager mounting can set FSP_FSCTL_VOLUME_PARAMS::MountDevPersistentUniqueId together
+with stable FileSystemName, VolumeSerialNumber and VolumeCreationTime values to help
+applications correlate a reconnected volume with its prior instance.
 
 
 - Directories: They can be used as mount points for disk based file systems. They cannot

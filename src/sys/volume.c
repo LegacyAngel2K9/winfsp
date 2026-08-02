@@ -784,7 +784,7 @@ NTSTATUS FspVolumeMakeMountdev(
     PDEVICE_OBJECT FsvrtDeviceObject = FsvolDeviceExtension->FsvrtDeviceObject;
     ULONG InputBufferLength = IrpSp->Parameters.FileSystemControl.InputBufferLength;
     ULONG OutputBufferLength = IrpSp->Parameters.FileSystemControl.OutputBufferLength;
-    BOOLEAN Persistent = 0 < InputBufferLength ? !!*(PBOOLEAN)Irp->AssociatedIrp.SystemBuffer : FALSE;
+    BOOLEAN Persistent = FALSE, StableUniqueId = FALSE;
     NTSTATUS Result;
 
     if (0 == FsvrtDeviceObject)
@@ -792,9 +792,18 @@ NTSTATUS FspVolumeMakeMountdev(
     if (sizeof(GUID) > OutputBufferLength)
         return STATUS_INVALID_PARAMETER;
 
+    if (sizeof(FSP_FSCTL_MOUNTDEV_PARAMS) <= InputBufferLength)
+    {
+        FSP_FSCTL_MOUNTDEV_PARAMS *Params = Irp->AssociatedIrp.SystemBuffer;
+        Persistent = !!Params->Persistent;
+        StableUniqueId = !!Params->StableUniqueId;
+    }
+    else if (0 < InputBufferLength)
+        Persistent = StableUniqueId = !!*(PBOOLEAN)Irp->AssociatedIrp.SystemBuffer;
+
     FspFsvrtDeviceLockMount(FsvrtDeviceObject);
 
-    Result = FspMountdevMake(FsvrtDeviceObject, FsvolDeviceObject, Persistent);
+    Result = FspMountdevMake(FsvrtDeviceObject, FsvolDeviceObject, Persistent, StableUniqueId);
     if (!NT_SUCCESS(Result))
     {
         if (STATUS_TOO_LATE != Result)
@@ -848,7 +857,7 @@ NTSTATUS FspVolumeUseMountmgr(
             UINT8 B[FIELD_OFFSET(KEY_VALUE_PARTIAL_INFORMATION, Data) + sizeof(ULONG)];
         } RegValue;
         ULONG RegLength;
-        BOOLEAN Persistent = FALSE;
+        BOOLEAN StableUniqueId = FsvolDeviceExtension->VolumeParams.MountDevPersistentUniqueId;
 
         if (!(
             2 * sizeof(WCHAR) <= InputBufferLength &&
@@ -879,7 +888,7 @@ NTSTATUS FspVolumeUseMountmgr(
             goto exit;
         }
 
-        Result = FspMountdevMake(FsvrtDeviceObject, FsvolDeviceObject, Persistent);
+        Result = FspMountdevMake(FsvrtDeviceObject, FsvolDeviceObject, FALSE, StableUniqueId);
         if (!NT_SUCCESS(Result))
         {
             if (STATUS_TOO_LATE != Result)

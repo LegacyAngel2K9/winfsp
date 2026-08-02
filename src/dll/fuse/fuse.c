@@ -106,6 +106,7 @@ static struct fuse_opt fsp_fuse_core_opts[] =
     FSP_FUSE_CORE_OPT("FlushOnCleanup=", set_FlushOnCleanup, 1),
     FSP_FUSE_CORE_OPT("LegacyUnlinkRename=", set_LegacyUnlinkRename, 1),
     FSP_FUSE_CORE_OPT("AllowRelSymlinksAcrossFileSystem", set_AllowRelSymlinksAcrossFileSystem, 1),
+    FSP_FUSE_CORE_OPT("MountDevPersistentUniqueId", set_MountDevPersistentUniqueId, 1),
     FSP_FUSE_CORE_OPT("WslFeatures", set_WslFeatures, 1),
     FSP_FUSE_CORE_OPT("defer_permissions", set_defer_permissions, 1),
     FSP_FUSE_CORE_OPT("ThreadCount=%u", ThreadCount, 0),
@@ -675,6 +676,8 @@ static int fsp_fuse_core_opt_proc(void *opt_data0, const char *arg, int key,
             "    -o LegacyUnlinkRename      do not support new POSIX unlink/rename\n"
             "    -o AllowRelSymlinksAcrossFileSystem\n"
             "                                allow relative symlinks to cross file systems\n"
+            "    -o MountDevPersistentUniqueId\n"
+            "                                use stable MountDev ID with MountMgr mounts\n"
             "    -o WslFeatures             enable WSL drvfs metadata queries\n"
             "    -o ThreadCount             number of file system dispatcher threads\n"
             "    -o UserOwner               use caller user as file owner\n"
@@ -905,6 +908,8 @@ FSP_FUSE_API struct fuse *fsp_fuse_new(struct fsp_fuse_env *env,
         opt_data.VolumeParams.SupportsPosixUnlinkRename = FALSE;
     if (opt_data.set_AllowRelSymlinksAcrossFileSystem)
         opt_data.VolumeParams.AllowRelSymlinksAcrossFileSystem = TRUE;
+    if (opt_data.set_MountDevPersistentUniqueId)
+        opt_data.VolumeParams.MountDevPersistentUniqueId = TRUE;
     if (opt_data.set_WslFeatures)
         opt_data.VolumeParams.WslFeatures = TRUE;
     if (opt_data.set_defer_permissions)

@@ -1284,6 +1284,7 @@ typedef struct
     LONG IsMountdev;
     /* protected under MountMutex */
     BOOLEAN Persistent;
+    BOOLEAN StableUniqueId;
     GUID UniqueId;
     UNICODE_STRING MountPoint;
 } FSP_FSVRT_DEVICE_EXTENSION;
@@ -1620,7 +1621,7 @@ BOOLEAN FspMountdevDeviceControl(
     PNTSTATUS PResult);
 NTSTATUS FspMountdevMake(
     PDEVICE_OBJECT FsvrtDeviceObject, PDEVICE_OBJECT FsvolDeviceObject,
-    BOOLEAN Persistent);
+    BOOLEAN Persistent, BOOLEAN StableUniqueId);
 VOID FspMountdevFini(
     PDEVICE_OBJECT FsvrtDeviceObject);
 

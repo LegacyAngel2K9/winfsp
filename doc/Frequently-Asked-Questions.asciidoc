@@ -97,3 +97,10 @@ Can I use a WinFsp-FUSE file system from WSL?::
     Yes. Mount the file system on a drive letter and add `-o WslFeatures` to the WinFsp-FUSE options. The drive can then be mounted from WSL with `sudo mount -t drvfs X: /mnt/x`.
 +
 Native WinFsp and .NET file systems use `FSP_FSCTL_VOLUME_PARAMS::WslFeatures` and `FileSystemHost.WslFeatures` for the same opt-in support. The option is not enabled by default because WSL expects Linux metadata queries that not every FUSE file system wants to expose.
+
+
+Why do folder change monitors stop seeing changes after I disconnect and reconnect a WinFsp drive?::
+
+    Directory change notification handles belong to the mounted volume instance. When the file system is disconnected that volume is destroyed, so applications that keep old `ReadDirectoryChangesW` handles must reopen them after reconnect.
++
+For applications that also track Mount Manager volume identity, mount with `\\.\X:` and enable `FSP_FSCTL_VOLUME_PARAMS::MountDevPersistentUniqueId`, `.NET FileSystemHost.MountDevPersistentUniqueId`, or WinFsp-FUSE `-o MountDevPersistentUniqueId`. The file system must provide stable `FileSystemName`, `VolumeSerialNumber` and `VolumeCreationTime` values; otherwise each reconnect is still a new identity. This does not keep old directory-change handles alive, but it gives watchers a stable MountDev unique ID to correlate reconnects.
