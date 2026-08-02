@@ -1070,7 +1070,7 @@ NTSTATUS FspFsvolCreateComplete(
         }
 
         /* handle normalized names */
-        if (!CaseSensitive)
+        if (!FileDesc->CaseSensitive)
         {
             /* is there a normalized file name as part of the response? */
             if (0 == Response->Rsp.Create.Opened.FileName.Size)

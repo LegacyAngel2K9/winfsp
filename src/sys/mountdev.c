@@ -30,7 +30,7 @@ BOOLEAN FspMountdevDeviceControl(
     PNTSTATUS PResult);
 NTSTATUS FspMountdevMake(
     PDEVICE_OBJECT FsvrtDeviceObject, PDEVICE_OBJECT FsvolDeviceObject,
-    BOOLEAN Persistent);
+    BOOLEAN Persistent, BOOLEAN StableUniqueId);
 VOID FspMountdevFini(
     PDEVICE_OBJECT FsvrtDeviceObject);
 

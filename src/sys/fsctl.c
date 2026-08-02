@@ -815,7 +815,7 @@ static NTSTATUS FspFsvolFileSystemControlQueryAllocatedRangesComplete(
     PFILE_ALLOCATED_RANGE_BUFFER OutputBuffer = Irp->UserBuffer;
     ULONG OutputBufferLength = IrpSp->Parameters.FileSystemControl.OutputBufferLength;
     ULONG Size = Response->Rsp.FileSystemControl.Buffer.Size;
-    PVOID Buffer = Response->Buffer + Response->Rsp.FileSystemControl.Buffer.Offset;
+    PCVOID Buffer = Response->Buffer + Response->Rsp.FileSystemControl.Buffer.Offset;
 
     if (Response->Buffer + Response->Rsp.FileSystemControl.Buffer.Offset + Size >
         (PUINT8)Response + Response->Size)

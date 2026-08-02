@@ -494,7 +494,7 @@ static NTSTATUS FspVolumeCreateNoLock(
     }
 
     /* associate the new volume device with our file object */
-    FileObject->FsContext2 = FsvolDeviceObject;
+    IrpSp->FileObject->FsContext2 = FsvolDeviceObject;
 
     Irp->IoStatus.Information = FILE_OPENED;
     return STATUS_SUCCESS;
@@ -857,7 +857,7 @@ NTSTATUS FspVolumeUseMountmgr(
             UINT8 B[FIELD_OFFSET(KEY_VALUE_PARTIAL_INFORMATION, Data) + sizeof(ULONG)];
         } RegValue;
         ULONG RegLength;
-        BOOLEAN StableUniqueId = FsvolDeviceExtension->VolumeParams.MountDevPersistentUniqueId;
+        BOOLEAN StableUniqueId = !!FsvolDeviceExtension->VolumeParams.MountDevPersistentUniqueId;
 
         if (!(
             2 * sizeof(WCHAR) <= InputBufferLength &&
