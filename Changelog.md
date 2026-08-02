@@ -79,6 +79,8 @@
 
 - [NEW] Add an opt-in persistent MountDev unique ID for Mount Manager mounts so reconnect-aware folder monitors can correlate a new volume instance with the prior one. See GitHub issue #678.
 
+- [FIX] Avoid probing optical drives through Mount Manager in the WinFsp Network Provider to prevent Explorer startup stalls when CD/DVD media is present. See GitHub issue #679.
+
 
 ## v2.2B2 (2026 Beta2)
 

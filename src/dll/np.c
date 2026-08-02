@@ -257,7 +257,7 @@ static BOOLEAN FspNpGetVolumeNameForDrive(WCHAR Drive, PWSTR VolumeNameBuf, DWOR
     LocalNameBuf[1] = L':';
     LocalNameBuf[2] = L'\0';
 
-    return QueryDosDeviceW(LocalNameBuf, VolumeNameBuf, VolumeNameBufSize);
+    return !!QueryDosDeviceW(LocalNameBuf, VolumeNameBuf, VolumeNameBufSize);
 }
 
 static BOOLEAN FspNpGetVolumeNameForMountPoint(WCHAR Drive, PWSTR VolumeNameBuf, DWORD VolumeNameBufSize)
@@ -270,6 +270,14 @@ static BOOLEAN FspNpGetVolumeNameForMountPoint(WCHAR Drive, PWSTR VolumeNameBuf,
     RootPathName[1] = L':';
     RootPathName[2] = L'\\';
     RootPathName[3] = L'\0';
+
+    /*
+     * Do not ask MountMgr to resolve optical drives. During shell startup, a mounted
+     * CD/DVD can block or repeatedly disturb Explorer while network providers are probed.
+     */
+    if (DRIVE_CDROM == GetDriveTypeW(RootPathName))
+        return FALSE;
+
     if (!GetVolumeNameForVolumeMountPointW(RootPathName, VolumeGuidName,
         sizeof VolumeGuidName / sizeof(WCHAR)))
         return FALSE;
@@ -283,7 +291,7 @@ static BOOLEAN FspNpGetVolumeNameForMountPoint(WCHAR Drive, PWSTR VolumeNameBuf,
     if (0 != VolumeGuidLength && L'\\' == VolumeGuid[VolumeGuidLength - 1])
         VolumeGuid[VolumeGuidLength - 1] = L'\0';
 
-    return QueryDosDeviceW(VolumeGuid, VolumeNameBuf, VolumeNameBufSize);
+    return !!QueryDosDeviceW(VolumeGuid, VolumeNameBuf, VolumeNameBufSize);
 }
 
 static BOOLEAN FspNpDriveVolumeNameMatches(WCHAR Drive, PWSTR VolumeName)
