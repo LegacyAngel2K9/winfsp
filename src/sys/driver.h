@@ -238,6 +238,7 @@ VOID FspTraceNtStatus(const char *file, int line, const char *func, NTSTATUS Sta
         return FspMupHandleIrp(DeviceObject, Irp);\
     NTSTATUS Result = STATUS_SUCCESS;   \
     PIO_STACK_LOCATION IrpSp = IoGetCurrentIrpStackLocation(Irp);\
+    FspIrpClearContext(Irp);            \
     BOOLEAN fsp_device_deref = FALSE;   \
     PIRP fsp_top_level_irp = IoGetTopLevelIrp();\
     FSP_ENTER_(ioentr, __VA_ARGS__);    \
@@ -804,6 +805,13 @@ VOID FspProcessBufferRelease(PVOID BufferCookie, PVOID Buffer);
     (*(ULONG *)&(Irp)->Tail.Overlay.DriverContext[0])
 #define FspIrpDictNext(Irp)             \
     (*(PIRP *)&(Irp)->Tail.Overlay.DriverContext[1])
+static inline
+VOID FspIrpClearContext(PIRP Irp)
+{
+    FspIrpTimestamp(Irp) = 0;
+    FspIrpDictNext(Irp) = 0;
+    Irp->Tail.Overlay.DriverContext[2] = 0;
+}
 static inline
 FSP_FSCTL_TRANSACT_REQ *FspIrpRequest(PIRP Irp)
 {

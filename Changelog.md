@@ -69,6 +69,8 @@
 
 - [DOC] Clarify that WinFsp UNC prefixes are local Network Provider names and that remote sharing must use a disk file system exported through the Windows Server service. See GitHub issue #650.
 
+- [FIX] Initialize WinFsp's IRP request context before dispatch so foreign `DriverContext` data on VHDX paging writes is not reused as a request. See GitHub issue #651.
+
 
 ## v2.2B2 (2026 Beta2)
 
