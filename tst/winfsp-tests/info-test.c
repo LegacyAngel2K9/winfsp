@@ -490,6 +490,116 @@ void gethardlinkinfo_test(void)
     }
 }
 
+static void hardlink_replace_dotest(PWSTR Prefix)
+{
+    NTSYSCALLAPI NTSTATUS NTAPI
+    NtSetInformationFile(
+        HANDLE FileHandle,
+        PIO_STATUS_BLOCK IoStatusBlock,
+        PVOID FileInformation,
+        ULONG Length,
+        FILE_INFORMATION_CLASS FileInformationClass);
+    typedef struct
+    {
+        BOOLEAN ReplaceIfExists;
+        HANDLE RootDirectory;
+        ULONG FileNameLength;
+        WCHAR FileName[1];
+    } FILE_LINK_INFORMATION, *PFILE_LINK_INFORMATION;
+
+    HANDLE DirectoryHandle, SourceHandle, TargetHandle;
+    WCHAR SourcePath[MAX_PATH], TargetPath[MAX_PATH];
+    WCHAR TargetName[] = L"hardlink-target";
+    union
+    {
+        FILE_LINK_INFORMATION I;
+        UINT8 B[sizeof(FILE_LINK_INFORMATION) + sizeof TargetName];
+    } LinkInfo;
+    IO_STATUS_BLOCK IoStatus;
+    BY_HANDLE_FILE_INFORMATION SourceInfo, TargetInfo;
+    DWORD BytesTransferred;
+    CHAR Data;
+    BOOLEAN Success;
+
+    StringCbPrintfW(SourcePath, sizeof SourcePath, L"%s\\hardlink-source", Prefix);
+    StringCbPrintfW(TargetPath, sizeof TargetPath, L"%s\\%s", Prefix, TargetName);
+
+    DirectoryHandle = CreateFileW(Prefix,
+        FILE_READ_ATTRIBUTES, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, 0,
+        OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, 0);
+    ASSERT(INVALID_HANDLE_VALUE != DirectoryHandle);
+
+    SourceHandle = CreateFileW(SourcePath,
+        GENERIC_READ | GENERIC_WRITE | DELETE,
+        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, 0,
+        CREATE_NEW, FILE_ATTRIBUTE_NORMAL, 0);
+    ASSERT(INVALID_HANDLE_VALUE != SourceHandle);
+    Success = WriteFile(SourceHandle, "S", 1, &BytesTransferred, 0);
+    ASSERT(Success && 1 == BytesTransferred);
+    ASSERT(FlushFileBuffers(SourceHandle));
+
+    TargetHandle = CreateFileW(TargetPath,
+        GENERIC_READ | GENERIC_WRITE,
+        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, 0,
+        CREATE_NEW, FILE_ATTRIBUTE_NORMAL, 0);
+    ASSERT(INVALID_HANDLE_VALUE != TargetHandle);
+    Success = WriteFile(TargetHandle, "T", 1, &BytesTransferred, 0);
+    ASSERT(Success && 1 == BytesTransferred);
+    ASSERT(CloseHandle(TargetHandle));
+
+    memset(&LinkInfo, 0, sizeof LinkInfo);
+    LinkInfo.I.RootDirectory = DirectoryHandle;
+    LinkInfo.I.FileNameLength = sizeof TargetName - sizeof(WCHAR);
+    memcpy(LinkInfo.I.FileName, TargetName, LinkInfo.I.FileNameLength);
+
+    IoStatus.Status = NtSetInformationFile(
+        SourceHandle, &IoStatus,
+        &LinkInfo.I, FIELD_OFFSET(FILE_LINK_INFORMATION, FileName) + LinkInfo.I.FileNameLength,
+        11/*FileLinkInformation*/);
+    ASSERT(STATUS_OBJECT_NAME_COLLISION == IoStatus.Status);
+
+    TargetHandle = CreateFileW(TargetPath,
+        GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, 0,
+        OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, 0);
+    ASSERT(INVALID_HANDLE_VALUE != TargetHandle);
+    ASSERT(ReadFile(TargetHandle, &Data, 1, &BytesTransferred, 0));
+    ASSERT(1 == BytesTransferred && 'T' == Data);
+    ASSERT(CloseHandle(TargetHandle));
+
+    LinkInfo.I.ReplaceIfExists = TRUE;
+    IoStatus.Status = NtSetInformationFile(
+        SourceHandle, &IoStatus,
+        &LinkInfo.I, FIELD_OFFSET(FILE_LINK_INFORMATION, FileName) + LinkInfo.I.FileNameLength,
+        11/*FileLinkInformation*/);
+    ASSERT(STATUS_SUCCESS == IoStatus.Status);
+
+    TargetHandle = CreateFileW(TargetPath,
+        GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, 0,
+        OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, 0);
+    ASSERT(INVALID_HANDLE_VALUE != TargetHandle);
+    ASSERT(ReadFile(TargetHandle, &Data, 1, &BytesTransferred, 0));
+    ASSERT(1 == BytesTransferred && 'S' == Data);
+    ASSERT(GetFileInformationByHandle(SourceHandle, &SourceInfo));
+    ASSERT(GetFileInformationByHandle(TargetHandle, &TargetInfo));
+    ASSERT(SourceInfo.nFileIndexHigh == TargetInfo.nFileIndexHigh);
+    ASSERT(SourceInfo.nFileIndexLow == TargetInfo.nFileIndexLow);
+    ASSERT(2 <= SourceInfo.nNumberOfLinks);
+
+    ASSERT(CloseHandle(TargetHandle));
+    ASSERT(CloseHandle(SourceHandle));
+    ASSERT(CloseHandle(DirectoryHandle));
+    ASSERT(DeleteFileW(TargetPath));
+    ASSERT(DeleteFileW(SourcePath));
+}
+
+static void hardlink_replace_test(void)
+{
+    WCHAR DirBuf[MAX_PATH];
+
+    GetTestDirectory(DirBuf);
+    hardlink_replace_dotest(DirBuf);
+}
+
 void getfileinfo_name_dotest(ULONG Flags, PWSTR Prefix, ULONG FileInfoTimeout)
 {
     void *memfs = memfs_start_ex(Flags, FileInfoTimeout);
@@ -2896,6 +3006,8 @@ void info_tests(void)
         TEST(getfileinfo_name_test);
     if (!OptFuseExternal)
         TEST(gethardlinkinfo_test);
+    if (NtfsTests)
+        TEST(hardlink_replace_test);
     TEST(setfileinfo_test);
     TEST(delete_test);
     TEST(delete_access_test);

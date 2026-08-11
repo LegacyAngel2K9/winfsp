@@ -2096,12 +2096,12 @@ static NTSTATUS fsp_fuse_intf_Link(FSP_FILE_SYSTEM *FileSystem,
     UINT32 Uid, Gid, Mode;
     FSP_FSCTL_FILE_INFO FileInfoBuf;
     struct fsp_fuse_file_desc *filedesc = FileDesc;
+    char *PosixHiddenPath = 0;
     int err;
     NTSTATUS Result;
 
     (void)FileName;
     (void)NewFileName;
-    (void)ReplaceIfExists;
 
     if (0 == f->ops.link)
         return STATUS_INVALID_DEVICE_REQUEST;
@@ -2116,12 +2116,33 @@ static NTSTATUS fsp_fuse_intf_Link(FSP_FILE_SYSTEM *FileSystem,
         return Result;
 
     if (NT_SUCCESS(Result))
-        return STATUS_OBJECT_NAME_COLLISION;
+    {
+        if (!ReplaceIfExists)
+            return STATUS_OBJECT_NAME_COLLISION;
+        if (FileInfoBuf.FileAttributes & FILE_ATTRIBUTE_DIRECTORY)
+            return STATUS_ACCESS_DENIED;
+        if (0 == f->ops.rename || 0 == f->ops.unlink)
+            return STATUS_INVALID_DEVICE_REQUEST;
 
-    err = f->ops.link(filedesc->PosixPath, contexthdr->PosixPath);
+        Result = fsp_fuse_intf_NewHiddenName(FileSystem,
+            contexthdr->PosixPath, &PosixHiddenPath);
+        if (!NT_SUCCESS(Result))
+            return Result;
+
+        err = f->ops.link(filedesc->PosixPath, PosixHiddenPath);
+        if (0 == err)
+        {
+            err = f->ops.rename(PosixHiddenPath, contexthdr->PosixPath);
+            if (0 != err)
+                f->ops.unlink(PosixHiddenPath);
+        }
+    }
+    else
+        err = f->ops.link(filedesc->PosixPath, contexthdr->PosixPath);
+
     Result = fsp_fuse_ntstatus_from_errno(f->env, err);
     if (!NT_SUCCESS(Result))
-        return Result;
+        goto exit;
 
     fsp_fuse_intf_InvalidateCachedFileInfo(filedesc);
 
@@ -2129,6 +2150,9 @@ static NTSTATUS fsp_fuse_intf_Link(FSP_FILE_SYSTEM *FileSystem,
         &Uid, &Gid, &Mode, FileInfo);
     if (NT_SUCCESS(Result))
         fsp_fuse_intf_SetCachedFileInfo(f, filedesc, Uid, Gid, Mode, FileInfo);
+
+exit:
+    MemFree(PosixHiddenPath);
 
     return Result;
 }

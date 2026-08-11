@@ -104,6 +104,14 @@ static int ptfs_rename(const char *oldpath, const char *newpath, unsigned int fl
     return -1 != rename(oldpath, newpath) ? 0 : -errno;
 }
 
+static int ptfs_link(const char *oldpath, const char *newpath)
+{
+    ptfs_impl_fullpath(newpath);
+    ptfs_impl_fullpath(oldpath);
+
+    return -1 != link(oldpath, newpath) ? 0 : -errno;
+}
+
 static int ptfs_chmod(const char *path, fuse_mode_t mode, struct fuse_file_info *fi)
 {
     ptfs_impl_fullpath(path);
@@ -300,6 +308,7 @@ static struct fuse_operations ptfs_ops =
     .unlink = ptfs_unlink,
     .rmdir = ptfs_rmdir,
     .rename = ptfs_rename,
+    .link = ptfs_link,
     .chmod = ptfs_chmod,
     .chown = ptfs_chown,
     .truncate = ptfs_truncate,
