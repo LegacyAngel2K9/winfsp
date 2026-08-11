@@ -80,8 +80,6 @@
 
 - [FIX] Cover Explorer UNC resource resolution for WinFsp network volumes. See GitHub issue #569.
 
-- [FIX] Return NTFS-compatible `FileHardLinkInformation` for WinFsp files to satisfy Windows NFS share probing. See GitHub issue #583.
-
 - [FIX] Prioritize directory queries in the user-mode dispatch queue so listings stay responsive during heavy write workloads. See GitHub issue #588.
 
 - [TEST] Cover loading a companion DLL from WinFsp volumes to guard executable scenarios that depend on same-directory DLL loads. See GitHub issue #599.
