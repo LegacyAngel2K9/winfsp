@@ -633,29 +633,6 @@ typedef struct _FSP_FILE_SYSTEM_INTERFACE
         PVOID FileContext,
         PWSTR FileName, PWSTR NewFileName, BOOLEAN ReplaceIfExists);
     /**
-     * Creates a hard link to a file.
-     *
-     * @param FileSystem
-     *     The file system on which this request is posted.
-     * @param FileContext
-     *     The file context of the file to link.
-     * @param FileName
-     *     The current name of the file to link.
-     * @param NewFileName
-     *     The name for the new hard link.
-     * @param ReplaceIfExists
-     *     Whether to replace a file that already exists at NewFileName.
-     * @param FileInfo [out]
-     *     Pointer to a structure that will receive the linked file information on successful
-     *     return from this call. This information includes file attributes, file times, etc.
-     * @return
-     *     STATUS_SUCCESS or error code.
-     */
-    NTSTATUS (*Link)(FSP_FILE_SYSTEM *FileSystem,
-        PVOID FileContext,
-        PWSTR FileName, PWSTR NewFileName, BOOLEAN ReplaceIfExists,
-        FSP_FSCTL_FILE_INFO *FileInfo);
-    /**
      * Get file or directory security descriptor.
      *
      * @param FileSystem
@@ -1109,6 +1086,30 @@ typedef struct _FSP_FILE_SYSTEM_INTERFACE
         BOOLEAN Normally);
 
     /**
+     * Creates a hard link to a file.
+     *
+     * @param FileSystem
+     *     The file system on which this request is posted.
+     * @param FileContext
+     *     The file context of the file to link.
+     * @param FileName
+     *     The current name of the file to link.
+     * @param NewFileName
+     *     The name for the new hard link.
+     * @param ReplaceIfExists
+     *     Whether to replace a file that already exists at NewFileName.
+     * @param FileInfo [out]
+     *     Pointer to a structure that will receive the linked file information on successful
+     *     return from this call. This information includes file attributes, file times, etc.
+     * @return
+     *     STATUS_SUCCESS or error code.
+     */
+    NTSTATUS (*Link)(FSP_FILE_SYSTEM *FileSystem,
+        PVOID FileContext,
+        PWSTR FileName, PWSTR NewFileName, BOOLEAN ReplaceIfExists,
+        FSP_FSCTL_FILE_INFO *FileInfo);
+
+    /**
      * Query allocated file ranges.
      *
      * This operation services FSCTL_QUERY_ALLOCATED_RANGES. File systems that can represent
@@ -1143,6 +1144,15 @@ typedef struct _FSP_FILE_SYSTEM_INTERFACE
      */
     NTSTATUS (*Reserved[29])();
 } FSP_FILE_SYSTEM_INTERFACE;
+FSP_FSCTL_STATIC_ASSERT(FIELD_OFFSET(FSP_FILE_SYSTEM_INTERFACE, DispatcherStopped) ==
+    32 * sizeof(NTSTATUS (*)()),
+    "FSP_FILE_SYSTEM_INTERFACE existing entries must retain their ABI offsets.");
+FSP_FSCTL_STATIC_ASSERT(FIELD_OFFSET(FSP_FILE_SYSTEM_INTERFACE, Link) ==
+    33 * sizeof(NTSTATUS (*)()),
+    "FSP_FILE_SYSTEM_INTERFACE new entries must consume reserved slots.");
+FSP_FSCTL_STATIC_ASSERT(FIELD_OFFSET(FSP_FILE_SYSTEM_INTERFACE, QueryAllocatedRanges) ==
+    34 * sizeof(NTSTATUS (*)()),
+    "FSP_FILE_SYSTEM_INTERFACE new entries must consume reserved slots in order.");
 FSP_FSCTL_STATIC_ASSERT(sizeof(FSP_FILE_SYSTEM_INTERFACE) == 64 * sizeof(NTSTATUS (*)()),
     "FSP_FILE_SYSTEM_INTERFACE must have 64 entries.");
 typedef struct _FSP_FILE_SYSTEM

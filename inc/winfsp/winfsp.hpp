@@ -1275,7 +1275,6 @@ private:
             SetFileSize,
             CanDelete,
             Rename,
-            Link,
             GetSecurity,
             SetSecurity,
             ReadDirectory,
@@ -1284,6 +1283,16 @@ private:
             SetReparsePoint,
             DeleteReparsePoint,
             GetStreamInfo,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            Link,
         };
         return &_Interface;
     }

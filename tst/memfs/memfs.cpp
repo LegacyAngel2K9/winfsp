@@ -2322,7 +2322,6 @@ static FSP_FILE_SYSTEM_INTERFACE MemfsInterface =
     SetFileSize,
     CanDelete,
     Rename,
-    0,
     GetSecurity,
     SetSecurity,
     ReadDirectory,

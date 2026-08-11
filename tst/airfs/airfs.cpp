@@ -1122,7 +1122,6 @@ FSP_FILE_SYSTEM_INTERFACE AirfsInterface =
     ApiSetFileSize,
     ApiCanDelete,
     ApiRename,
-    0,
     ApiGetSecurity,
     ApiSetSecurity,
     ApiReadDirectory,

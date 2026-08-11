@@ -3088,7 +3088,6 @@ FSP_FILE_SYSTEM_INTERFACE fsp_fuse_intf =
     fsp_fuse_intf_SetFileSize,
     fsp_fuse_intf_CanDelete,
     fsp_fuse_intf_Rename,
-    fsp_fuse_intf_Link,
     fsp_fuse_intf_GetSecurity,
     fsp_fuse_intf_SetSecurity,
     fsp_fuse_intf_ReadDirectory,
@@ -3106,6 +3105,7 @@ FSP_FILE_SYSTEM_INTERFACE fsp_fuse_intf =
     fsp_fuse_intf_SetEa,
     0,
     fsp_fuse_intf_DispatcherStopped,
+    fsp_fuse_intf_Link,
     fsp_fuse_intf_QueryAllocatedRanges,
 };
 

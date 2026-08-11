@@ -782,7 +782,6 @@ namespace Fsp.Interop
         internal Proto.SetFileSize SetFileSize;
         internal Proto.CanDelete CanDelete;
         internal Proto.Rename Rename;
-        internal Proto.Link Link;
         internal Proto.GetSecurity GetSecurity;
         internal Proto.SetSecurity SetSecurity;
         internal Proto.ReadDirectory ReadDirectory;
@@ -800,7 +799,9 @@ namespace Fsp.Interop
         internal Proto.SetEa SetEa;
         internal Proto.Obsolete0 Obsolete0;
         internal Proto.DispatcherStopped DispatcherStopped;
-        /* NTSTATUS (*Reserved[32])(); */
+        internal Proto.Link Link;
+        internal IntPtr QueryAllocatedRanges;
+        /* NTSTATUS (*Reserved[29])(); */
     }
 
     [SuppressUnmanagedCodeSecurity]
