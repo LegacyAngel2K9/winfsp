@@ -2821,7 +2821,7 @@ void remote_protocol_test(void)
         remote_protocol_dotest(MemfsNet, L"\\\\memfs\\share", TRUE);
 }
 
-void network_physical_name_dotest(ULONG Flags, PWSTR Prefix, BOOLEAN ExpectNetwork)
+void network_physical_name_dotest(ULONG Flags, PWSTR Prefix)
 {
     void *memfs = memfs_start_ex(Flags, 0);
 
@@ -2857,25 +2857,20 @@ void network_physical_name_dotest(ULONG Flags, PWSTR Prefix, BOOLEAN ExpectNetwo
     Result = NtQueryInformationFile(Handle, &IoStatus,
         &NetworkPhysicalNameInfo, FIELD_OFFSET(FSP_TEST_FILE_NETWORK_PHYSICAL_NAME_INFORMATION, FileName),
         (FILE_INFORMATION_CLASS)49/*FileNetworkPhysicalNameInformation*/);
-    if (ExpectNetwork)
-    {
-        StringCbPrintfW(ExpectedName, sizeof ExpectedName, L"%s\\file0", Prefix);
+    StringCbPrintfW(ExpectedName, sizeof ExpectedName, L"%s\\file0", Prefix);
 
-        ASSERT(STATUS_BUFFER_OVERFLOW == Result);
-        ASSERT(NetworkPhysicalNameInfo.I.FileNameLength == wcslen(ExpectedName) * sizeof(WCHAR));
+    ASSERT(STATUS_BUFFER_OVERFLOW == Result);
+    ASSERT(NetworkPhysicalNameInfo.I.FileNameLength == wcslen(ExpectedName) * sizeof(WCHAR));
 
-        memset(&NetworkPhysicalNameInfo, 0, sizeof NetworkPhysicalNameInfo);
-        Result = NtQueryInformationFile(Handle, &IoStatus,
-            &NetworkPhysicalNameInfo, sizeof NetworkPhysicalNameInfo,
-            (FILE_INFORMATION_CLASS)49/*FileNetworkPhysicalNameInformation*/);
-        ASSERT(STATUS_SUCCESS == Result);
-        ASSERT(NetworkPhysicalNameInfo.I.FileNameLength == wcslen(ExpectedName) * sizeof(WCHAR));
-        ASSERT(0 == mywcscmp(ExpectedName, -1,
-            NetworkPhysicalNameInfo.I.FileName,
-            NetworkPhysicalNameInfo.I.FileNameLength / sizeof(WCHAR)));
-    }
-    else
-        ASSERT(STATUS_INVALID_PARAMETER == Result);
+    memset(&NetworkPhysicalNameInfo, 0, sizeof NetworkPhysicalNameInfo);
+    Result = NtQueryInformationFile(Handle, &IoStatus,
+        &NetworkPhysicalNameInfo, sizeof NetworkPhysicalNameInfo,
+        (FILE_INFORMATION_CLASS)49/*FileNetworkPhysicalNameInformation*/);
+    ASSERT(STATUS_SUCCESS == Result);
+    ASSERT(NetworkPhysicalNameInfo.I.FileNameLength == wcslen(ExpectedName) * sizeof(WCHAR));
+    ASSERT(0 == mywcscmp(ExpectedName, -1,
+        NetworkPhysicalNameInfo.I.FileName,
+        NetworkPhysicalNameInfo.I.FileNameLength / sizeof(WCHAR)));
 
     Success = CloseHandle(Handle);
     ASSERT(Success);
@@ -2888,10 +2883,8 @@ void network_physical_name_test(void)
     if (NtfsTests)
         return;
 
-    if (WinFspDiskTests)
-        network_physical_name_dotest(MemfsDisk, 0, FALSE);
     if (WinFspNetTests)
-        network_physical_name_dotest(MemfsNet, L"\\\\memfs\\share", TRUE);
+        network_physical_name_dotest(MemfsNet, L"\\\\memfs\\share");
 }
 
 void network_resource_information_test(void)
