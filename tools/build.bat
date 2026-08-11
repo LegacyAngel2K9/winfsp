@@ -88,6 +88,9 @@ if X%SignedPackage%==X (
         if errorlevel 1 goto fail
     )
 
+    devenv winfsp.sln /build "Installer.%Configuration%|x86" /project CustomActions
+    if errorlevel 1 goto fail
+
     pushd build\%Configuration%
     set signfiles=^
         %MyProductFileName%-a64.sys %MyProductFileName%-x64.sys %MyProductFileName%-x86.sys^
