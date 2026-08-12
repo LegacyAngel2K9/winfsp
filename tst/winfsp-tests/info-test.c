@@ -2845,8 +2845,7 @@ void network_physical_name_dotest(ULONG Flags, PWSTR Prefix)
             MAX_PATH * sizeof(WCHAR)];
     } NetworkPhysicalNameInfo;
 
-    StringCbPrintfW(FilePath, sizeof FilePath, L"\\\\?\\GLOBALROOT%s\\file0",
-        memfs_volumename(memfs));
+    StringCbPrintfW(FilePath, sizeof FilePath, L"%s\\file0", Prefix);
 
     Handle = CreateFileW(FilePath,
         GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, 0,
@@ -2855,7 +2854,7 @@ void network_physical_name_dotest(ULONG Flags, PWSTR Prefix)
 
     memset(&NetworkPhysicalNameInfo, 0, sizeof NetworkPhysicalNameInfo);
     Result = NtQueryInformationFile(Handle, &IoStatus,
-        &NetworkPhysicalNameInfo, FIELD_OFFSET(FSP_TEST_FILE_NETWORK_PHYSICAL_NAME_INFORMATION, FileName),
+        &NetworkPhysicalNameInfo, sizeof(FSP_TEST_FILE_NETWORK_PHYSICAL_NAME_INFORMATION),
         (FILE_INFORMATION_CLASS)49/*FileNetworkPhysicalNameInformation*/);
     StringCbPrintfW(ExpectedName, sizeof ExpectedName, L"%s\\file0", Prefix);
 
