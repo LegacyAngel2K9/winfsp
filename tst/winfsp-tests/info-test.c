@@ -2845,8 +2845,8 @@ void network_physical_name_dotest(ULONG Flags, PWSTR Prefix)
             MAX_PATH * sizeof(WCHAR)];
     } NetworkPhysicalNameInfo;
 
-    StringCbPrintfW(FilePath, sizeof FilePath, L"%s%s\\file0",
-        Prefix ? L"" : L"\\\\?\\GLOBALROOT", Prefix ? Prefix : memfs_volumename(memfs));
+    StringCbPrintfW(FilePath, sizeof FilePath, L"\\\\?\\GLOBALROOT%s\\file0",
+        memfs_volumename(memfs));
 
     Handle = CreateFileW(FilePath,
         GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, 0,
