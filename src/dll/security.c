@@ -447,6 +447,34 @@ FSP_API NTSTATUS FspCreateSecurityDescriptor(FSP_FILE_SYSTEM *FileSystem,
     return STATUS_SUCCESS;
 }
 
+static NTSTATUS FspMapGenericAcl(PACL InputAcl, PACL *PMappedAcl)
+{
+    PACL MappedAcl;
+    PACE_HEADER Ace;
+
+    *PMappedAcl = 0;
+
+    MappedAcl = MemAlloc(InputAcl->AclSize);
+    if (0 == MappedAcl)
+        return STATUS_INSUFFICIENT_RESOURCES;
+    memcpy(MappedAcl, InputAcl, InputAcl->AclSize);
+
+    for (DWORD Index = 0; MappedAcl->AceCount > Index; Index++)
+    {
+        if (!GetAce(MappedAcl, Index, (PVOID *)&Ace))
+        {
+            NTSTATUS Result = FspNtStatusFromWin32(GetLastError());
+            MemFree(MappedAcl);
+            return Result;
+        }
+
+        MapGenericMask(&((PACCESS_ALLOWED_ACE)Ace)->Mask, &FspFileGenericMapping);
+    }
+
+    *PMappedAcl = MappedAcl;
+    return STATUS_SUCCESS;
+}
+
 FSP_API NTSTATUS FspSetSecurityDescriptorEx(
     PSECURITY_DESCRIPTOR InputDescriptor,
     SECURITY_INFORMATION SecurityInformation,
@@ -483,6 +511,8 @@ FSP_API NTSTATUS FspSetSecurityDescriptorEx(
     PSECURITY_DESCRIPTOR AbsoluteDescriptor;
     PACL Dacl;
     PACL Sacl;
+    PACL MappedDacl = 0;
+    PACL MappedSacl = 0;
     PSID Owner;
     PSID Group;
     PSECURITY_DESCRIPTOR SecurityDescriptor = 0;
@@ -537,6 +567,14 @@ FSP_API NTSTATUS FspSetSecurityDescriptorEx(
             goto exit;
         }
 
+        if (DaclPresent && 0 != ModificationDacl)
+        {
+            Result = FspMapGenericAcl(ModificationDacl, &MappedDacl);
+            if (!NT_SUCCESS(Result))
+                goto exit;
+            ModificationDacl = MappedDacl;
+        }
+
         if (!SetSecurityDescriptorDacl(AbsoluteDescriptor,
             DaclPresent, ModificationDacl, DaclDefaulted))
         {
@@ -561,6 +599,14 @@ FSP_API NTSTATUS FspSetSecurityDescriptorEx(
         {
             Result = FspNtStatusFromWin32(ERROR_INVALID_ACL);
             goto exit;
+        }
+
+        if (SaclPresent && 0 != ModificationSacl)
+        {
+            Result = FspMapGenericAcl(ModificationSacl, &MappedSacl);
+            if (!NT_SUCCESS(Result))
+                goto exit;
+            ModificationSacl = MappedSacl;
         }
 
         if (!SetSecurityDescriptorSacl(AbsoluteDescriptor,
@@ -673,6 +719,8 @@ FSP_API NTSTATUS FspSetSecurityDescriptorEx(
 
 exit:
     MemFree(SecurityDescriptor);
+    MemFree(MappedSacl);
+    MemFree(MappedDacl);
     MemFree(Buffer);
 
     return Result;

@@ -27,6 +27,37 @@
 
 #include "winfsp-tests.h"
 
+static void setsecuritydescriptor_test(void)
+{
+    static PWSTR InputSddl = L"O:SYG:SYD:(A;;GA;;;WD)";
+    static PWSTR ModificationSddl = L"D:(A;;GA;;;SY)(A;;GA;;;BA)";
+    PSECURITY_DESCRIPTOR InputDescriptor, ModificationDescriptor;
+    PSECURITY_DESCRIPTOR SecurityDescriptor = 0;
+    PWSTR ConvertedSddl;
+    NTSTATUS Result;
+    BOOL Success;
+
+    Success = ConvertStringSecurityDescriptorToSecurityDescriptorW(
+        InputSddl, SDDL_REVISION_1, &InputDescriptor, 0);
+    ASSERT(Success);
+    Success = ConvertStringSecurityDescriptorToSecurityDescriptorW(
+        ModificationSddl, SDDL_REVISION_1, &ModificationDescriptor, 0);
+    ASSERT(Success);
+
+    Result = FspSetSecurityDescriptor(InputDescriptor,
+        DACL_SECURITY_INFORMATION, ModificationDescriptor, &SecurityDescriptor);
+    ASSERT(STATUS_SUCCESS == Result);
+    Success = ConvertSecurityDescriptorToStringSecurityDescriptorW(
+        SecurityDescriptor, SDDL_REVISION_1, DACL_SECURITY_INFORMATION, &ConvertedSddl, 0);
+    ASSERT(Success);
+    ASSERT(0 == wcscmp(L"D:(A;;FA;;;SY)(A;;FA;;;BA)", ConvertedSddl));
+
+    LocalFree(ConvertedSddl);
+    FspDeleteSecurityDescriptor(SecurityDescriptor, FspSetSecurityDescriptor);
+    LocalFree(ModificationDescriptor);
+    LocalFree(InputDescriptor);
+}
+
 void getsecurity_dotest(ULONG Flags, PWSTR Prefix, ULONG FileInfoTimeout)
 {
     void *memfs = memfs_start_ex(Flags, FileInfoTimeout);
@@ -380,6 +411,7 @@ void defer_access_check_test(void)
 
 void security_tests(void)
 {
+    TEST(setsecuritydescriptor_test);
     TEST(getsecurity_test);
     TEST(defer_access_check_test);
     if (!OptFuseExternal)
